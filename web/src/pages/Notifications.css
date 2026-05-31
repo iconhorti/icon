@@ -1,0 +1,121 @@
+/* Notification Tabs */
+.notif-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.notif-tab {
+  padding: 0.5rem 1.25rem;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: var(--glass-bg);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notif-tab:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.notif-tab.active {
+  background: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+/* Notification List */
+.notif-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  padding: 1.25rem 1.5rem;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.notif-item:hover {
+  transform: translateY(-2px);
+}
+
+.notif-unread {
+  border-left: 3px solid var(--color-primary);
+}
+
+/* Icon wrapper */
+.notif-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.notif-success { background: #d1fae5; color: #059669; }
+.notif-warning { background: #fef3c7; color: #d97706; }
+.notif-info    { background: #dbeafe; color: #2563eb; }
+
+/* Content */
+.notif-content { flex: 1; }
+
+.notif-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.notif-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--color-text-main);
+}
+
+.notif-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.notif-message {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.notif-time {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Badge */
+.notif-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.75rem;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.6rem;
+  font-weight: 700;
+  vertical-align: middle;
+}

@@ -1,0 +1,358 @@
+PRAGMA foreign_keys = ON;
+
+-- =========================
+-- 👤 PERSON MASTER (UPDATED)
+-- https://chatgpt.com/c/69c41d25-1de4-8322-8ba2-2d52065d5808
+-- =========================
+CREATE TABLE person (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    first_name TEXT NOT NULL,
+    last_name TEXT,
+    full_name TEXT,
+    
+    role TEXT CHECK(role IN (
+        'farmer','dealer','employee','bank_officer','admin','owner'
+    )),
+    
+    phone_primary TEXT NOT NULL,
+    phone_secondary TEXT,
+    whatsapp_number TEXT,
+    email TEXT,
+    
+    address_line1 TEXT,
+    address_line2 TEXT,
+    village TEXT,
+    taluka TEXT,
+    district TEXT,
+    state TEXT,
+    pincode TEXT,
+    
+    aadhaar_number TEXT,
+    pan_number TEXT,
+    
+    firm_name TEXT,
+    gst_number TEXT,
+    
+    land_area REAL,
+    land_unit TEXT DEFAULT 'SQM',
+    
+    designation TEXT,
+    joining_date DATE,
+    
+    is_active INTEGER DEFAULT 1,
+    remarks TEXT,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME
+);
+
+CREATE INDEX idx_person_role ON person(role);
+CREATE INDEX idx_person_phone ON person(phone_primary);
+
+-- =========================
+-- 🏦 BANK MASTER
+-- =========================
+CREATE TABLE bank (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- =========================
+-- 📍 BANK BRANCH
+-- =========================
+CREATE TABLE bank_branch (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    bank_id INTEGER NOT NULL,
+    
+    branch_name TEXT,
+    branch_code TEXT,
+    ifsc TEXT,
+    
+    address TEXT,
+    village TEXT,
+    taluka TEXT,
+    district TEXT,
+    state TEXT,
+    
+    phone TEXT,
+    email TEXT,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (bank_id) REFERENCES bank(id)
+);
+
+CREATE UNIQUE INDEX idx_branch_ifsc ON bank_branch(ifsc);
+
+-- =========================
+-- 👤 BANK CONTACT
+-- =========================
+CREATE TABLE bank_contact (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    branch_id INTEGER NOT NULL,
+    
+    name TEXT NOT NULL,
+    designation TEXT,
+    phone TEXT,
+    email TEXT,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (branch_id) REFERENCES bank_branch(id)
+);
+
+-- =========================
+-- 🧱 STRUCTURE MASTER
+-- =========================
+CREATE TABLE structures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    model TEXT,
+    crop_type TEXT,
+    description TEXT
+);
+
+-- =========================
+-- 🌱 PROJECT MASTER
+-- =========================
+CREATE TABLE projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    project_name TEXT,
+    
+    farmer_id INTEGER NOT NULL,
+    dealer_id INTEGER,
+    bank_branch_id INTEGER,
+    
+    village TEXT,
+    taluka TEXT,
+    district TEXT,
+    
+    khasra_no TEXT,
+    survey_no TEXT,
+    land_area REAL,
+    land_unit TEXT DEFAULT 'SQM',
+    
+    latitude REAL,
+    longitude REAL,
+    
+    project_stage TEXT CHECK(project_stage IN (
+        'farmer','dealer','bank','office',
+        'erection','drip','bed','plantation',
+        'subsidy_visit','completed'
+    )) DEFAULT 'farmer',
+    
+    priority TEXT CHECK(priority IN ('high','normal','low')) DEFAULT 'normal',
+    
+    expected_start_date DATE,
+    expected_end_date DATE,
+    actual_start_date DATE,
+    actual_end_date DATE,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (farmer_id) REFERENCES person(id),
+    FOREIGN KEY (dealer_id) REFERENCES person(id),
+    FOREIGN KEY (bank_branch_id) REFERENCES bank_branch(id)
+);
+
+CREATE INDEX idx_projects_stage ON projects(project_stage);
+CREATE INDEX idx_projects_location ON projects(latitude, longitude);
+
+-- =========================
+-- 🔗 PROJECT STRUCTURES
+-- =========================
+CREATE TABLE project_structures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    project_id INTEGER NOT NULL,
+    structure_id INTEGER NOT NULL,
+    
+    area REAL,
+    remarks TEXT,
+    
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (structure_id) REFERENCES structures(id)
+);
+
+-- =========================
+-- 📊 PROJECT STAGE LOGS
+-- =========================
+CREATE TABLE project_stage_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    
+    stage_name TEXT,
+    start_date DATE,
+    end_date DATE,
+    
+    status TEXT CHECK(status IN ('pending','in_progress','completed')) DEFAULT 'pending',
+    
+    remarks TEXT,
+    updated_by INTEGER,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES person(id)
+);
+
+-- =========================
+-- 🧱 STRUCTURE STAGE LOGS
+-- =========================
+CREATE TABLE structure_stage_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    
+    project_structure_id INTEGER NOT NULL,
+    
+    stage_name TEXT CHECK(stage_name IN (
+        'layout',
+        'foundation',
+        'structure_erection',
+        'net_fixing',
+        'drip_installation',
+        'bed_preparation',
+        'plantation',
+        'completed'
+    )),
+    
+    start_date DATE,
+    end_date DATE,
+    
+    progress_percent REAL DEFAULT 0,
+    
+    status TEXT CHECK(status IN ('pending','in_progress','completed')) DEFAULT 'pending',
+    
+    remarks TEXT,
+    updated_by INTEGER,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (project_structure_id) REFERENCES project_structures(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES person(id)
+);
+
+CREATE INDEX idx_structure_logs_ps ON structure_stage_logs(project_structure_id);
+
+-- =========================
+-- 🏗️ PROJECT TASKS
+-- =========================
+CREATE TABLE project_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    
+    task_name TEXT,
+    assigned_to INTEGER,
+    
+    start_date DATE,
+    end_date DATE,
+    
+    status TEXT CHECK(status IN ('pending','in_progress','completed')) DEFAULT 'pending',
+    
+    remarks TEXT,
+    
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (assigned_to) REFERENCES person(id)
+);
+
+-- =========================
+-- 📋 DAILY SITE REPORTS
+-- =========================
+CREATE TABLE daily_site_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    project_structure_id INTEGER,
+    
+    report_date DATE,
+    supervisor_id INTEGER,
+    
+    work_done TEXT,
+    labor_count INTEGER,
+    issues TEXT,
+    next_plan TEXT,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_structure_id) REFERENCES project_structures(id) ON DELETE CASCADE,
+    FOREIGN KEY (supervisor_id) REFERENCES person(id)
+);
+
+-- =========================
+-- 📸 PROJECT PHOTOS (FIXED STAGES)
+-- =========================
+CREATE TABLE project_progress_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER,
+    project_structure_id INTEGER,
+    
+    stage TEXT CHECK(stage IN (
+        'layout',
+        'foundation',
+        'structure_erection',
+        'net_fixing',
+        'drip_installation',
+        'bed_preparation',
+        'plantation',
+        'completed'
+    )),
+    
+    file_path TEXT,
+    
+    geo_location TEXT,
+    uploaded_by INTEGER,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_structure_id) REFERENCES project_structures(id) ON DELETE CASCADE,
+    FOREIGN KEY (uploaded_by) REFERENCES person(id)
+);
+
+-- =========================
+-- 🧾 SUBSIDY MODULE
+-- =========================
+CREATE TABLE project_subsidy (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER UNIQUE,
+    
+    subsidy_scheme TEXT,
+    
+    current_stage TEXT CHECK(current_stage IN (
+        'goc_application',
+        'inspection_request',
+        'approval'
+    )) DEFAULT 'goc_application',
+    
+    status TEXT CHECK(status IN ('pending','in_progress','completed')) DEFAULT 'pending',
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_subsidy_project ON project_subsidy(project_id);
+
+-- =========================
+-- 📊 SUBSIDY STAGE LOGS
+-- =========================
+CREATE TABLE subsidy_stage_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    subsidy_id INTEGER,
+    
+    stage_name TEXT,
+    start_date DATE,
+    end_date DATE,
+    
+    status TEXT CHECK(status IN ('pending','in_progress','completed')) DEFAULT 'pending',
+    
+    remarks TEXT,
+    
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (subsidy_id) REFERENCES project_subsidy(id) ON DELETE CASCADE
+);

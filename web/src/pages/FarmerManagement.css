@@ -1,0 +1,9 @@
+.flex-center-gap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mr-1 {
+  margin-right: 0.25rem;
+}
