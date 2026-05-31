@@ -5,6 +5,7 @@ import { ProjectRow }          from '../../components/shared/ProjectRow';
 import { OfflineBanner }       from '../../components/shared/OfflineBanner';
 import { EmptyState }          from '../../components/shared/EmptyState';
 import { COLORS, SPACING }     from '../../constants/theme';
+import type { NavigationProp } from '@react-navigation/native';
 
 const STAGE_FILTERS = [
   { label: 'All',        value: '' },
@@ -14,7 +15,7 @@ const STAGE_FILTERS = [
   { label: 'Inspection', value: 'agency_inspection' },
 ];
 
-export default function FarmerPipelineScreen({ navigation }: any) {
+export default function FarmerPipelineScreen({ navigation }: { navigation: NavigationProp<any> }) {
   const [stageFilter, setStageFilter] = useState('');
   const [search, setSearch]           = useState('');
   const [refreshing, setRefreshing]   = useState(false);

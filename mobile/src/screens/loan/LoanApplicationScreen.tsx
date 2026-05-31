@@ -3,9 +3,11 @@ import { ScrollView, View, Text, StyleSheet } from 'react-native';
 import { useGetProjectByIdQuery } from '../../store/api/projectsApi';
 import { formatInr }              from '../../utils/format';
 import { COLORS, SPACING }        from '../../constants/theme';
+import type { RouteProp }         from '@react-navigation/native';
+import type { LoanStackParamList } from '../../navigation/types';
 
-export default function LoanApplicationScreen({ route }: any) {
-  const { data: project, isLoading } = useGetProjectByIdQuery(route.params?.id ?? 0);
+export default function LoanApplicationScreen({ route }: { route: RouteProp<LoanStackParamList, 'LoanDetail'> }) {
+  const { data: project, isLoading } = useGetProjectByIdQuery(route.params.id);
 
   if (isLoading) return <Text style={{ padding: 32, textAlign: 'center' }}>Loading…</Text>;
   if (!project)  return <Text style={{ padding: 32, textAlign: 'center' }}>Project not found.</Text>;

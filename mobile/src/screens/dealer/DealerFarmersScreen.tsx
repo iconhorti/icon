@@ -5,8 +5,9 @@ import { ProjectRow }          from '../../components/shared/ProjectRow';
 import { EmptyState }          from '../../components/shared/EmptyState';
 import { OfflineBanner }       from '../../components/shared/OfflineBanner';
 import { COLORS, SPACING }     from '../../constants/theme';
+import type { NavigationProp } from '@react-navigation/native';
 
-export default function DealerFarmersScreen({ navigation }: any) {
+export default function DealerFarmersScreen({ navigation }: { navigation: NavigationProp<any> }) {
   const [search, setSearch]         = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const { data, isLoading, isError, isFetching, refetch } = useGetProjectsQuery({ limit: 200 });

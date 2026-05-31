@@ -11,9 +11,10 @@ import BankFollowUpScreen      from '../../screens/loan/BankFollowUpScreen';
 import ProjectDetailScreen     from '../../screens/shared/ProjectDetailScreen';
 import NotificationsScreen     from '../../screens/shared/NotificationsScreen';
 import ProfileScreen           from '../../screens/shared/ProfileScreen';
+import type { LoanStackParamList } from '../types';
 
 const Tab   = createBottomTabNavigator();
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<LoanStackParamList>();
 const ico   = (e: string) => () => <Text style={{ fontSize: 20 }}>{e}</Text>;
 
 const hdrOpts = { headerStyle: { backgroundColor: '#1565C0' }, headerTintColor: COLORS.white, headerTitleStyle: { fontWeight: '700' as const } };

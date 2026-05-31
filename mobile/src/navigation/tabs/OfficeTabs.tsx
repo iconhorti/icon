@@ -10,9 +10,10 @@ import ApprovalQueueScreen from '../../screens/office/ApprovalQueueScreen';
 import NotificationsScreen from '../../screens/shared/NotificationsScreen';
 import ProfileScreen       from '../../screens/shared/ProfileScreen';
 import ProjectDetailScreen from '../../screens/shared/ProjectDetailScreen';
+import type { OfficeStackParamList } from '../types';
 
 const Tab   = createBottomTabNavigator();
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<OfficeStackParamList>();
 const ico   = (e: string) => () => <Text style={{ fontSize: 20 }}>{e}</Text>;
 
 const tabOpts = {

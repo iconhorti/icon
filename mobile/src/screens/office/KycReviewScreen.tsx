@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { useReviewDocumentMutation } from '../../store/api/documentsApi';
-import { COLORS, SPACING, RADIUS }   from '../../constants/theme';
+import { COLORS, SPACING, RADIUS }    from '../../constants/theme';
+import type { NavigationProp, RouteProp } from '@react-navigation/native';
+import type { OfficeStackParamList }      from '../../navigation/types';
 
-export default function KycReviewScreen({ route, navigation }: any) {
+export default function KycReviewScreen({
+  route,
+  navigation,
+}: {
+  route: RouteProp<OfficeStackParamList, 'KycReview'>;
+  navigation: NavigationProp<any>;
+}) {
   const docId                       = route.params?.docId as number | undefined;
   const [note, setNote]             = useState('');
   const [reviewDoc, { isLoading }]  = useReviewDocumentMutation();

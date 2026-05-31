@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRegisterFarmerMutation } from '../../store/api/farmersApi';
 import { COLORS, SPACING, RADIUS }   from '../../constants/theme';
+import type { NavigationProp }        from '@react-navigation/native';
 
-export default function AddFarmerScreen({ navigation }: any) {
+export default function AddFarmerScreen({ navigation }: { navigation: NavigationProp<any> }) {
   const [firstName, setFirstName]       = useState('');
   const [lastName, setLastName]         = useState('');
   const [phone, setPhone]               = useState('');
