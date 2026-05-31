@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScrollView, RefreshControl, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useGetProjectsQuery } from '../../store/api/projectsApi';
 import { ProjectRow }          from '../../components/shared/ProjectRow';
 import { OfflineBanner }       from '../../components/shared/OfflineBanner';
@@ -17,7 +17,8 @@ const STAGE_FILTERS = [
 export default function FarmerPipelineScreen({ navigation }: any) {
   const [stageFilter, setStageFilter] = useState('');
   const [search, setSearch]           = useState('');
-  const { data, isLoading }           = useGetProjectsQuery({ stage: stageFilter || undefined, limit: 100 });
+  const [refreshing, setRefreshing]   = useState(false);
+  const { data, isLoading, refetch }  = useGetProjectsQuery({ stage: stageFilter || undefined, limit: 100 });
 
   const projects = (data?.items ?? []).filter((p) => {
     if (!search) return true;
@@ -27,8 +28,17 @@ export default function FarmerPipelineScreen({ navigation }: any) {
     return name.includes(query) || farmer.includes(query);
   });
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+    >
       <OfflineBanner />
       <TextInput
         style={styles.search}

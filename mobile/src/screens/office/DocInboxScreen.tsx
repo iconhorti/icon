@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { ScrollView, RefreshControl, View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { useGetDocumentsQuery } from '../../store/api/documentsApi';
 import { OfflineBanner }        from '../../components/shared/OfflineBanner';
 import { EmptyState }           from '../../components/shared/EmptyState';
@@ -7,10 +7,11 @@ import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
 const FILTERS = ['All', 'KYC', 'Land', 'Subsidy', 'NHB', 'Legal'];
 
-export default function DocInboxScreen() {
+export default function DocInboxScreen({ navigation }: any) {
   const [activeFilter, setActiveFilter] = useState('All');
   const [search, setSearch]             = useState('');
-  const { data: docs = [], isLoading }  = useGetDocumentsQuery({ status: 'pending' });
+  const [refreshing, setRefreshing]     = useState(false);
+  const { data: docs = [], isLoading, refetch } = useGetDocumentsQuery({ status: 'pending' });
 
   const filtered = docs.filter((d) => {
     const matchFilter = activeFilter === 'All' || d.document_type.toLowerCase().includes(activeFilter.toLowerCase());
@@ -18,8 +19,17 @@ export default function DocInboxScreen() {
     return matchFilter && matchSearch;
   });
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+    >
       <OfflineBanner />
       <TextInput
         style={styles.search}
@@ -46,7 +56,11 @@ export default function DocInboxScreen() {
       ) : (
         <View style={{ paddingHorizontal: SPACING.md }}>
           {filtered.map((doc) => (
-            <View key={doc.id} style={styles.row}>
+            <TouchableOpacity
+              key={doc.id}
+              style={styles.row}
+              onPress={() => navigation.navigate('KycReview', { docId: doc.id })}
+            >
               <Text style={styles.icon}>📄</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name} numberOfLines={1}>{doc.document_type} — {doc.farmer_name}</Text>
@@ -55,7 +69,7 @@ export default function DocInboxScreen() {
               <View style={styles.reviewBadge}>
                 <Text style={styles.reviewTxt}>Review</Text>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}

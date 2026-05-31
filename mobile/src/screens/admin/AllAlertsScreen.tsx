@@ -1,15 +1,25 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native';
 import { useGetNotificationsQuery } from '../../store/api/notificationsApi';
 import { EmptyState }               from '../../components/shared/EmptyState';
 import { OfflineBanner }            from '../../components/shared/OfflineBanner';
 import { COLORS, SPACING }          from '../../constants/theme';
 
 export default function AllAlertsScreen() {
-  const { data: notifs = [] } = useGetNotificationsQuery();
+  const [refreshing, setRefreshing]    = useState(false);
+  const { data: notifs = [], refetch } = useGetNotificationsQuery();
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+    >
       <OfflineBanner />
       {notifs.length === 0
         ? <EmptyState emoji="🔕" message="No system alerts." />

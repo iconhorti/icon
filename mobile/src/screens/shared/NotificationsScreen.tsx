@@ -1,16 +1,26 @@
-import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, RefreshControl, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useGetNotificationsQuery, useMarkReadMutation } from '../../store/api/notificationsApi';
 import { EmptyState }    from '../../components/shared/EmptyState';
 import { OfflineBanner } from '../../components/shared/OfflineBanner';
 import { COLORS, SPACING } from '../../constants/theme';
 
 export default function NotificationsScreen() {
-  const { data: notifs = [] } = useGetNotificationsQuery();
-  const [markRead]            = useMarkReadMutation();
+  const [refreshing, setRefreshing]       = useState(false);
+  const { data: notifs = [], refetch }    = useGetNotificationsQuery();
+  const [markRead]                        = useMarkReadMutation();
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+    >
       <OfflineBanner />
       {notifs.length === 0
         ? <EmptyState emoji="🔔" message="No notifications yet." />
