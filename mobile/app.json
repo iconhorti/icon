@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "ICON Greenhouse",
+    "slug": "icon-greenhouse",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1a472a"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a472a"
+      },
+      "package": "com.icon.greenhouse",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-image-picker",
+      "expo-document-picker",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow ICON to access your camera for site photos."
+        }
+      ],
+      "expo-sqlite"
+    ]
+  }
+}
