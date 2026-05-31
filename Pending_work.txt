@@ -1,0 +1,24 @@
+1. Admin Should be able to see/add/edit/change 
+	1. 	office staff
+	2.	bank officer
+	3.	project manager
+	4.	agency officer
+	5.	contractors
+	6. 	farmers
+	7.	project
+	8. 	dealers
+	9.	Agronomist
+	10.	lookup tabales(structure, crop, agency, bank, bank branches,states, districts, tehsils, villages)
+
+
+IN SIDE BARS TO SHOW
+1.	DAHS BAORD
+2	ALL PROJECTS
+3	DEALERS
+4	OFFICE STAFF
+5	BANK OFFICER
+6	AGENY OFFICER
+7	CONTRACTORS
+8.	AGRONOMIST
+9.	MASTERS(LOOK UP TABLE)
+
