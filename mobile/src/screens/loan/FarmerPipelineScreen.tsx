@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ScrollView, RefreshControl, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useGetProjectsQuery } from '../../store/api/projectsApi';
 import { ProjectRow }          from '../../components/shared/ProjectRow';
@@ -18,7 +18,7 @@ export default function FarmerPipelineScreen({ navigation }: any) {
   const [stageFilter, setStageFilter] = useState('');
   const [search, setSearch]           = useState('');
   const [refreshing, setRefreshing]   = useState(false);
-  const { data, isLoading, refetch }  = useGetProjectsQuery({ stage: stageFilter || undefined, limit: 100 });
+  const { data, isLoading, isError, isFetching, refetch } = useGetProjectsQuery({ stage: stageFilter || undefined, limit: 100 });
 
   const projects = (data?.items ?? []).filter((p) => {
     if (!search) return true;
@@ -28,18 +28,30 @@ export default function FarmerPipelineScreen({ navigation }: any) {
     return name.includes(query) || farmer.includes(query);
   });
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
-  };
+  }, [refetch]);
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: COLORS.bg }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || isFetching}
+          onRefresh={onRefresh}
+          colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
+        />
+      }
     >
       <OfflineBanner />
+      {isError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+        </View>
+      )}
       <TextInput
         style={styles.search}
         placeholder="🔍 Search farmer or project…"
@@ -84,4 +96,6 @@ const styles = StyleSheet.create({
   chipTxt:       { fontSize: 11, fontWeight: '600', color: COLORS.subtext },
   chipTxtActive: { color: COLORS.white },
   loading:       { textAlign: 'center', color: COLORS.subtext, padding: 32 },
+  errorBanner:   { backgroundColor: '#FFEBEE', margin: 12, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#C62828' },
+  errorText:     { color: '#C62828', fontSize: 13, fontWeight: '600' },
 });

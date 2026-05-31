@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native';
 import { useGetDocumentsQuery } from '../../store/api/documentsApi';
 import { useGetStatsQuery }     from '../../store/api/dashboardApi';
 import { KpiCard }              from '../../components/shared/KpiCard';
@@ -7,16 +7,38 @@ import { OfflineBanner }        from '../../components/shared/OfflineBanner';
 import { COLORS, SPACING }      from '../../constants/theme';
 
 export default function OfficeDashboard() {
-  const { data: docs  = [] } = useGetDocumentsQuery({ status: 'pending' });
-  const { data: stats }      = useGetStatsQuery();
+  const { data: docs  = [], isError: isErrorDocs,  isFetching: isFetchingDocs,  refetch: refetchDocs  } = useGetDocumentsQuery({ status: 'pending' });
+  const { data: stats,      isError: isErrorStats, isFetching: isFetchingStats, refetch: refetchStats } = useGetStatsQuery();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([refetchDocs(), refetchStats()]);
+    setRefreshing(false);
+  }, [refetchDocs, refetchStats]);
 
   const pendingCount = docs.length;
   const dprCount     = stats?.stage_breakdown?.['dpr_ready']    ?? 0;
   const subsidyCount = stats?.pending_subsidy ?? 0;
 
   return (
-    <ScrollView style={styles.screen}>
+    <ScrollView
+      style={styles.screen}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || isFetchingDocs || isFetchingStats}
+          onRefresh={onRefresh}
+          colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
+        />
+      }
+    >
       <OfflineBanner />
+      {(isErrorDocs || isErrorStats) && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+        </View>
+      )}
       <View style={styles.kpiRow}>
         <KpiCard label="Pending Docs"  value={pendingCount} accentColor="#C62828" emoji="📄" />
         <KpiCard label="DPR Ready"     value={dprCount}     accentColor="#E65100" emoji="📐" />
@@ -58,4 +80,6 @@ const styles = StyleSheet.create({
   pendingBadge: { backgroundColor: '#FFF3E0', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   pendingText:  { fontSize: 10, fontWeight: '700', color: '#E65100' },
   emptyTxt:     { textAlign: 'center', color: COLORS.subtext, padding: 32 },
+  errorBanner:  { backgroundColor: '#FFEBEE', margin: 12, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#C62828' },
+  errorText:    { color: '#C62828', fontSize: 13, fontWeight: '600' },
 });

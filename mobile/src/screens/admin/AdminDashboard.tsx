@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native';
 import { useGetStatsQuery } from '../../store/api/dashboardApi';
 import { KpiCard }          from '../../components/shared/KpiCard';
 import { OfflineBanner }    from '../../components/shared/OfflineBanner';
@@ -7,11 +7,33 @@ import { formatInr }        from '../../utils/format';
 import { COLORS, SPACING }  from '../../constants/theme';
 
 export default function AdminDashboard() {
-  const { data: stats } = useGetStatsQuery();
+  const { data: stats, isError, isFetching, refetch } = useGetStatsQuery();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || isFetching}
+          onRefresh={onRefresh}
+          colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
+        />
+      }
+    >
       <OfflineBanner />
+      {isError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+        </View>
+      )}
       <View style={styles.row}>
         <KpiCard label="Projects"  value={stats?.total_projects ?? 0} accentColor="#C8972A" emoji="🏗️" />
         <KpiCard label="Farmers"   value={stats?.total_farmers  ?? 0} accentColor="#2E7D46" emoji="👨‍🌾" />
@@ -45,14 +67,16 @@ export default function AdminDashboard() {
 }
 
 const styles = StyleSheet.create({
-  row:       { flexDirection: 'row', padding: SPACING.md, gap: 6 },
-  finCard:   { backgroundColor: '#1A5C2E', margin: SPACING.md, borderRadius: 14, padding: SPACING.lg },
-  finLabel:  { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 },
-  finValue:  { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: SPACING.sm },
-  finRow:    { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  finSub:    { color: 'rgba(255,255,255,0.65)', fontSize: 12 },
-  section:   { fontSize: 11, fontWeight: '700', color: COLORS.subtext, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.sm },
-  teamRow:   { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: 6, borderRadius: 10, padding: SPACING.md, elevation: 1 },
-  teamLabel: { fontSize: 12, color: COLORS.subtext, textTransform: 'capitalize' },
-  teamCount: { fontSize: 15, fontWeight: '800', color: COLORS.primary },
+  row:         { flexDirection: 'row', padding: SPACING.md, gap: 6 },
+  finCard:     { backgroundColor: '#1A5C2E', margin: SPACING.md, borderRadius: 14, padding: SPACING.lg },
+  finLabel:    { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 },
+  finValue:    { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: SPACING.sm },
+  finRow:      { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  finSub:      { color: 'rgba(255,255,255,0.65)', fontSize: 12 },
+  section:     { fontSize: 11, fontWeight: '700', color: COLORS.subtext, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  teamRow:     { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: 6, borderRadius: 10, padding: SPACING.md, elevation: 1 },
+  teamLabel:   { fontSize: 12, color: COLORS.subtext, textTransform: 'capitalize' },
+  teamCount:   { fontSize: 15, fontWeight: '800', color: COLORS.primary },
+  errorBanner: { backgroundColor: '#FFEBEE', margin: 12, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#C62828' },
+  errorText:   { color: '#C62828', fontSize: 13, fontWeight: '600' },
 });

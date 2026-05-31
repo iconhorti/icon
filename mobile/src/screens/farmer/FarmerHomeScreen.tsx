@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native';
 import { useGetStatsQuery }      from '../../store/api/dashboardApi';
 import { OfflineBanner }         from '../../components/shared/OfflineBanner';
 import { StageChip }             from '../../components/shared/StageChip';
@@ -8,18 +8,43 @@ import { formatDate, daysSince } from '../../utils/format';
 import { COLORS, SPACING }       from '../../constants/theme';
 
 export default function FarmerHomeScreen() {
-  const { data: stats } = useGetStatsQuery();
-  const project         = stats?.my_project;
+  const { data: stats, isError, isFetching, refetch } = useGetStatsQuery();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const project = stats?.my_project;
 
   if (!project) {
     return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyEmoji}>🌱</Text>
-        <Text style={styles.emptyTitle}>No Project Yet</Text>
-        <Text style={styles.emptySub}>
-          Contact your ICON dealer or office to begin your polyhouse project journey.
-        </Text>
-      </View>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: COLORS.bg }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing || isFetching}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary]}
+            tintColor={COLORS.primary}
+          />
+        }
+      >
+        {isError && (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+          </View>
+        )}
+        <View style={styles.empty}>
+          <Text style={styles.emptyEmoji}>🌱</Text>
+          <Text style={styles.emptyTitle}>No Project Yet</Text>
+          <Text style={styles.emptySub}>
+            Contact your ICON dealer or office to begin your polyhouse project journey.
+          </Text>
+        </View>
+      </ScrollView>
     );
   }
 
@@ -27,8 +52,23 @@ export default function FarmerHomeScreen() {
   const days = daysSince(project.actual_start_date ?? project.created_at);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || isFetching}
+          onRefresh={onRefresh}
+          colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
+        />
+      }
+    >
       <OfflineBanner />
+      {isError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+        </View>
+      )}
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.projectName} numberOfLines={2}>
@@ -88,4 +128,6 @@ const styles = StyleSheet.create({
   statEmoji:      { fontSize: 18, marginBottom: 4 },
   statLabel:      { fontSize: 10, color: COLORS.subtext, textAlign: 'center', marginBottom: 2 },
   statValue:      { fontSize: 12, fontWeight: '700', color: COLORS.text, textAlign: 'center' },
+  errorBanner:    { backgroundColor: '#FFEBEE', margin: 12, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#C62828' },
+  errorText:      { color: '#C62828', fontSize: 13, fontWeight: '600' },
 });

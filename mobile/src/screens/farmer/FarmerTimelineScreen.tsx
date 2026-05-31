@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native';
 import { useGetStatsQuery }        from '../../store/api/dashboardApi';
 import { STAGE_ORDER, stageLabel } from '../../constants/stages';
 import { COLORS, SPACING }         from '../../constants/theme';
@@ -28,14 +28,37 @@ const GROUP_MAP: Record<string, string> = {
 };
 
 export default function FarmerTimelineScreen() {
-  const { data: stats } = useGetStatsQuery();
-  const currentStage    = stats?.my_project?.project_stage ?? '';
-  const currIdx         = STAGE_ORDER.indexOf(currentStage);
+  const { data: stats, isError, isFetching, refetch } = useGetStatsQuery();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const currentStage = stats?.my_project?.project_stage ?? '';
+  const currIdx      = STAGE_ORDER.indexOf(currentStage);
 
   let lastGroup = '';
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg, padding: SPACING.md }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg, padding: SPACING.md }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || isFetching}
+          onRefresh={onRefresh}
+          colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
+        />
+      }
+    >
+      {isError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+        </View>
+      )}
       {STAGE_ORDER.map((slug, idx) => {
         const group     = GROUP_MAP[slug] ?? '';
         const done      = idx < currIdx;
@@ -78,4 +101,6 @@ const styles = StyleSheet.create({
   labelCurrent: { color: '#E65100', fontWeight: '700' },
   badge:        { backgroundColor: '#FFF3E0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   badgeTxt:     { fontSize: 10, fontWeight: '700', color: '#E65100' },
+  errorBanner:  { backgroundColor: '#FFEBEE', margin: 12, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#C62828' },
+  errorText:    { color: '#C62828', fontSize: 13, fontWeight: '600' },
 });

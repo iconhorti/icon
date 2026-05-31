@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native';
 import { useGetStatsQuery } from '../../store/api/dashboardApi';
 import { KpiCard }          from '../../components/shared/KpiCard';
 import { OfflineBanner }    from '../../components/shared/OfflineBanner';
@@ -7,15 +7,38 @@ import { formatInr }        from '../../utils/format';
 import { COLORS, SPACING }  from '../../constants/theme';
 
 export default function DealerDashboard() {
-  const { data: stats } = useGetStatsQuery();
-  const dm              = stats?.dealer_metrics ?? ({} as any);
-  const commission      = dm.commission   ?? { earned: 0, pending: 0, rate_pct: 0 };
-  const funnel          = dm.funnel_data  ?? [];
-  const leaderboard     = dm.leaderboard  ?? [];
+  const { data: stats, isError, isFetching, refetch } = useGetStatsQuery();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
+
+  const dm          = stats?.dealer_metrics ?? ({} as any);
+  const commission  = dm.commission   ?? { earned: 0, pending: 0, rate_pct: 0 };
+  const funnel      = dm.funnel_data  ?? [];
+  const leaderboard = dm.leaderboard  ?? [];
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: COLORS.bg }}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing || isFetching}
+          onRefresh={onRefresh}
+          colors={[COLORS.primary]}
+          tintColor={COLORS.primary}
+        />
+      }
+    >
       <OfflineBanner />
+      {isError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+        </View>
+      )}
       <View style={styles.row}>
         <KpiCard label="My Farmers" value={stats?.total_farmers  ?? 0} accentColor={COLORS.primary} emoji="👨‍🌾" />
         <KpiCard label="Projects"   value={stats?.total_projects  ?? 0} accentColor="#1565C0"        emoji="🏗️" />
@@ -74,4 +97,6 @@ const styles = StyleSheet.create({
   lbMe:        { borderWidth: 2, borderColor: COLORS.primary },
   lbName:      { fontSize: 13, color: COLORS.text },
   lbCount:     { fontSize: 12, color: COLORS.subtext },
+  errorBanner: { backgroundColor: '#FFEBEE', margin: 12, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#C62828' },
+  errorText:   { color: '#C62828', fontSize: 13, fontWeight: '600' },
 });
