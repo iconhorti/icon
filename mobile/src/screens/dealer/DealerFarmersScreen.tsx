@@ -1,15 +1,59 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { COLORS } from '../../constants/theme';
+import React, { useState } from 'react';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, Linking, StyleSheet } from 'react-native';
+import { useGetProjectsQuery } from '../../store/api/projectsApi';
+import { ProjectRow }          from '../../components/shared/ProjectRow';
+import { EmptyState }          from '../../components/shared/EmptyState';
+import { OfflineBanner }       from '../../components/shared/OfflineBanner';
+import { COLORS, SPACING }     from '../../constants/theme';
 
-export default function DealerFarmersScreen() {
+export default function DealerFarmersScreen({ navigation }: any) {
+  const [search, setSearch] = useState('');
+  const { data, isLoading } = useGetProjectsQuery({ limit: 200 });
+
+  const projects = (data?.items ?? []).filter((p) => {
+    if (!search) return true;
+    const name = `${p.farmer?.first_name ?? ''} ${p.farmer?.last_name ?? ''}`.toLowerCase();
+    return name.includes(search.toLowerCase());
+  });
+
   return (
-    <View style={styles.c}>
-      <Text style={styles.t}>Dealer Farmers — coming in Task 6</Text>
-    </View>
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <OfflineBanner />
+      <TextInput
+        style={styles.search}
+        placeholder="🔍 Search farmer…"
+        value={search}
+        onChangeText={setSearch}
+      />
+      <View style={{ paddingHorizontal: SPACING.md }}>
+        {isLoading ? null : projects.length === 0 ? (
+          <EmptyState emoji="👨‍🌾" message="No farmers found." />
+        ) : (
+          projects.map((p) => (
+            <View key={p.id}>
+              <ProjectRow project={p} onPress={() => navigation.navigate('DealerProjectDetail', { id: p.id })} />
+              {p.farmer?.phone_primary && (
+                <TouchableOpacity
+                  style={styles.waBtn}
+                  onPress={() =>
+                    Linking.openURL(
+                      `https://wa.me/91${p.farmer!.phone_primary}?text=Hello+${encodeURIComponent(p.farmer!.first_name)}`
+                    )
+                  }
+                >
+                  <Text style={styles.waTxt}>💬 WhatsApp {p.farmer!.first_name}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ))
+        )}
+      </View>
+    </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
-  c: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bg },
-  t: { color: COLORS.subtext, fontSize: 14 },
+  search: { margin: SPACING.md, padding: SPACING.md, backgroundColor: COLORS.white, borderRadius: 10, borderWidth: 1.5, borderColor: COLORS.border, fontSize: 13 },
+  waBtn:  { marginHorizontal: SPACING.md, marginTop: -4, marginBottom: SPACING.sm, backgroundColor: '#25D366', borderRadius: 8, padding: 8, alignItems: 'center' },
+  waTxt:  { color: '#fff', fontWeight: '700', fontSize: 12, textAlign: 'center' },
 });

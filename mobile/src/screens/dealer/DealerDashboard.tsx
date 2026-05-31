@@ -1,15 +1,77 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { COLORS } from '../../constants/theme';
+import { ScrollView, View, Text, StyleSheet } from 'react-native';
+import { useGetStatsQuery } from '../../store/api/dashboardApi';
+import { KpiCard }          from '../../components/shared/KpiCard';
+import { OfflineBanner }    from '../../components/shared/OfflineBanner';
+import { formatInr }        from '../../utils/format';
+import { COLORS, SPACING }  from '../../constants/theme';
 
 export default function DealerDashboard() {
+  const { data: stats } = useGetStatsQuery();
+  const dm              = stats?.dealer_metrics ?? ({} as any);
+  const commission      = dm.commission   ?? { earned: 0, pending: 0, rate_pct: 0 };
+  const funnel          = dm.funnel_data  ?? [];
+  const leaderboard     = dm.leaderboard  ?? [];
+
   return (
-    <View style={styles.c}>
-      <Text style={styles.t}>Dealer Dashboard — coming in Task 6</Text>
-    </View>
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <OfflineBanner />
+      <View style={styles.row}>
+        <KpiCard label="My Farmers" value={stats?.total_farmers  ?? 0} accentColor={COLORS.primary} emoji="👨‍🌾" />
+        <KpiCard label="Projects"   value={stats?.total_projects  ?? 0} accentColor="#1565C0"        emoji="🏗️" />
+        <KpiCard label="Completed"  value={stats?.completed       ?? 0} accentColor="#2E7D46"        emoji="✅" />
+      </View>
+
+      {/* Commission card */}
+      <View style={styles.commCard}>
+        <Text style={styles.commLabel}>Commission Earned</Text>
+        <Text style={styles.commValue}>{formatInr(commission.earned)}</Text>
+        <View style={styles.commRow}>
+          <Text style={styles.commSub}>Pending: {formatInr(commission.pending)}</Text>
+          <Text style={styles.commSub}>Rate: {commission.rate_pct}%</Text>
+        </View>
+      </View>
+
+      {funnel.length > 0 && (
+        <>
+          <Text style={styles.section}>PIPELINE FUNNEL</Text>
+          {funnel.map((f: any) => (
+            <View key={f.name} style={styles.funnelRow}>
+              <Text style={styles.funnelLabel}>{f.name}</Text>
+              <Text style={[styles.funnelVal, { color: f.fill }]}>{f.value}</Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      {leaderboard.length > 0 && (
+        <>
+          <Text style={styles.section}>LEADERBOARD</Text>
+          {leaderboard.map((d: any) => (
+            <View key={d.name} style={[styles.lbRow, d.isMe && styles.lbMe]}>
+              <Text style={[styles.lbName, d.isMe && { color: COLORS.primary, fontWeight: '800' }]}>{d.name}</Text>
+              <Text style={styles.lbCount}>{d.projects} projects</Text>
+            </View>
+          ))}
+        </>
+      )}
+    </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
-  c: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bg },
-  t: { color: COLORS.subtext, fontSize: 14 },
+  row:         { flexDirection: 'row', padding: SPACING.md, gap: 6 },
+  commCard:    { backgroundColor: COLORS.primary, margin: SPACING.md, borderRadius: 14, padding: SPACING.lg },
+  commLabel:   { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
+  commValue:   { color: '#fff', fontSize: 26, fontWeight: '800', marginVertical: 4 },
+  commRow:     { flexDirection: 'row', justifyContent: 'space-between' },
+  commSub:     { color: 'rgba(255,255,255,0.65)', fontSize: 12 },
+  section:     { fontSize: 11, fontWeight: '700', color: COLORS.subtext, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  funnelRow:   { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: 6, borderRadius: 10, padding: SPACING.md, elevation: 1 },
+  funnelLabel: { fontSize: 12, color: COLORS.subtext },
+  funnelVal:   { fontSize: 16, fontWeight: '800' },
+  lbRow:       { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: 6, borderRadius: 10, padding: SPACING.md, elevation: 1 },
+  lbMe:        { borderWidth: 2, borderColor: COLORS.primary },
+  lbName:      { fontSize: 13, color: COLORS.text },
+  lbCount:     { fontSize: 12, color: COLORS.subtext },
 });
