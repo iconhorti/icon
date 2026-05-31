@@ -3,11 +3,15 @@ import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native
 import { useGetStatsQuery } from '../../store/api/dashboardApi';
 import { KpiCard }          from '../../components/shared/KpiCard';
 import { OfflineBanner }    from '../../components/shared/OfflineBanner';
+import { StaleBanner }      from '../../components/shared/StaleBanner';
+import { useCachedQuery }   from '../../hooks/useCachedQuery';
 import { formatInr }        from '../../utils/format';
 import { COLORS, SPACING }  from '../../constants/theme';
 
 export default function AdminDashboard() {
-  const { data: stats, isError, isFetching, refetch } = useGetStatsQuery();
+  const rawQuery = useGetStatsQuery();
+  const { data: stats, isError, isStale, cacheLabel, refetch } = useCachedQuery('stats', rawQuery);
+  const { isFetching } = rawQuery;
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = useCallback(async () => {
@@ -29,6 +33,7 @@ export default function AdminDashboard() {
       }
     >
       <OfflineBanner />
+      <StaleBanner label={cacheLabel} />
       {isError && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>

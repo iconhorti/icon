@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { cacheClear } from '../db/cache';
 
 const USER_KEY = 'icon_user';
 
@@ -64,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async (): Promise<void> => {
+    await cacheClear();
     await SecureStore.deleteItemAsync(USER_KEY);
     setUser(null);
   };
