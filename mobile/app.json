@@ -1,20 +1,22 @@
 {
   "expo": {
-    "name": "ICON Greenhouse",
-    "slug": "icon-greenhouse",
+    "name": "ICON ERP",
+    "slug": "icon-erp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1a472a"
+      "backgroundColor": "#F5F5F5"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#1a472a"
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1A5C2E"
       },
-      "package": "com.icon.greenhouse",
+      "package": "com.iconhorticulture.erp",
       "permissions": [
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
