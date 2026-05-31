@@ -5,11 +5,13 @@ import { Provider } from 'react-redux';
 import { store } from './src/store';
 import { AuthProvider } from './src/context/AuthContext';
 import RootNavigator from './src/navigation/RootNavigator';
+import PushNotificationRegistrar from './src/components/PushNotificationRegistrar';
 
 export default function App() {
   return (
     <Provider store={store}>
       <AuthProvider>
+        <PushNotificationRegistrar />
         <NavigationContainer>
           <StatusBar style="light" />
           <RootNavigator />
