@@ -145,12 +145,14 @@ const AdminDashboard = ({ stats, error, user }) => {
   const [modalTitle,   setModalTitle]   = useState('');
   const [modalData,    setModalData]    = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
+  const [modalError,   setModalError]   = useState(null);
 
   const openDrillDown = async (title, stageKeys) => {
     setModalTitle(title);
     setModalOpen(true);
     setModalLoading(true);
     setModalData([]);
+    setModalError(null);
     try {
       // Pass stage filter to the backend — avoids loading all projects client-side
       const params = { stage: stageKeys.join(','), limit: 100 };
@@ -160,6 +162,7 @@ const AdminDashboard = ({ stats, error, user }) => {
       setModalData(rows);
     } catch (e) {
       console.error(e);
+      setModalError('Could not load cases. Check your connection and try again.');
     } finally {
       setModalLoading(false);
     }
@@ -520,6 +523,11 @@ const AdminDashboard = ({ stats, error, user }) => {
                 <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>
                   <div className="loading-spinner" style={{ margin: '0 auto 1rem' }} />
                   Loading…
+                </div>
+              ) : modalError ? (
+                <div style={{ padding: '3rem', textAlign: 'center', color: '#ef4444' }}>
+                  <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⚠️</div>
+                  {modalError}
                 </div>
               ) : modalData.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No cases found for this category.</div>

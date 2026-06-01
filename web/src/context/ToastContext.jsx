@@ -25,6 +25,8 @@ export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
   const toast = useCallback((message, type = 'info', duration = 4000) => {
+    // Also exposed on window so non-React code (AuthContext) can trigger toasts
+    // without needing hook access. Used for session-expiry warnings.
     const id = _nextId++;
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), duration);
@@ -33,6 +35,14 @@ export const ToastProvider = ({ children }) => {
   const dismiss = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  // Listen for icon-toast events dispatched by non-React code (e.g. AuthContext
+  // session-expiry handler) and forward them into the React toast system.
+  React.useEffect(() => {
+    const handler = (e) => toast(e.detail.message, e.detail.type, 6000);
+    window.addEventListener('icon-toast', handler);
+    return () => window.removeEventListener('icon-toast', handler);
+  }, [toast]);
 
   return (
     <ToastContext.Provider value={{ toast }}>

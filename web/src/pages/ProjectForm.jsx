@@ -308,7 +308,12 @@ const ProjectForm = () => {
       };
 
       let resultId = savedProjectId;
-      if (!isEditMode && !savedProjectId) {
+      // isNewProject uses the local variable, not state — avoids stale-closure
+      // double-fire bug where setSavedProjectId() is async and the second guard
+      // at the bottom of this function would see the old (null) value and re-run
+      // the addProjectItem loop, duplicating every line item in the database.
+      const isNewProject = !isEditMode && !savedProjectId;
+      if (isNewProject) {
         const result = await createProject(payload);
         resultId = result.id;
         setSavedProjectId(resultId);
@@ -342,8 +347,8 @@ const ProjectForm = () => {
         }
       }
 
-      // Save project items (new project)
-      if (!isEditMode && !savedProjectId) {
+      // Save project items (new project) — use the local flag, NOT state
+      if (isNewProject) {
         for (const li of selectedItems) {
           await addProjectItem(resultId, {
             project_id: resultId,

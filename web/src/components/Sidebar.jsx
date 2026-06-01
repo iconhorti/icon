@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { getUnreadCount } from '../api/client';
 import {
   LayoutDashboard, Users, Tractor, Landmark,
@@ -199,6 +199,11 @@ const Sidebar = () => {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
+  // useLocation gives a reactive location object that updates on every SPA
+  // navigation — used instead of window.location.search (which is a non-reactive
+  // DOM snapshot) for query-param active-link detection below.
+  const location = useLocation();
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -234,7 +239,10 @@ const Sidebar = () => {
                 key={to + label}
                 to={to}
                 className={() => {
-                  const isRoleMatch = window.location.search.includes(qs);
+                  // Use the reactive `location` from useLocation — NOT
+                  // window.location.search which is a non-reactive DOM snapshot
+                  // and breaks active-link highlighting after SPA navigation.
+                  const isRoleMatch = location.search.includes(qs);
                   return `nav-item ${isRoleMatch ? 'active' : ''}`;
                 }}
               >

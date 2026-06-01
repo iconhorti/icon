@@ -32,10 +32,13 @@ const Settings = () => {
     setSaving(true);
     setError('');
     try {
-      await updateUser(user.id, {
+      const payload = {
         first_name: profile.first_name,
-        email: profile.email,
-      });
+        email:      profile.email,
+        // Only send phone if the user actually changed it (non-empty)
+        ...(profile.phone.trim() ? { phone_primary: profile.phone.trim() } : {}),
+      };
+      await updateUser(user.id, payload);
       const updated = { ...user, first_name: profile.first_name, email: profile.email };
       localStorage.setItem('icon_user', JSON.stringify(updated));
       setSaved(true);
@@ -128,6 +131,9 @@ const Settings = () => {
             <Bell size={20} />
             <h2>Notifications</h2>
           </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem', padding: '0 0 0.5rem', borderBottom: '1px solid var(--glass-border)' }}>
+            ℹ These preferences are saved per-device. Server-side notification delivery is always active.
+          </p>
           {[
             { key: 'project_updates', label: 'Project Stage Updates', desc: 'Get notified when a project moves to a new stage' },
             { key: 'subsidy_alerts',  label: 'Subsidy Alerts',        desc: 'Inspection requests, disbursements, and approvals' },

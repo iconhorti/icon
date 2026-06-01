@@ -65,7 +65,9 @@ const ProjectDetail = () => {
     const requiredFields = STAGE_REQUIRED_FIELDS[project.project_stage] || [];
     const missing = requiredFields.filter(({ field }) => {
       const v = project[field];
-      return v === null || v === undefined || v === '' || v === 0;
+      // Do NOT include v === 0 — a legitimately entered zero (e.g. zero subsidy)
+      // would be treated as missing and permanently block stage advance.
+      return v === null || v === undefined || v === '';
     });
     if (missing.length > 0) {
       toast(
