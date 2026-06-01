@@ -697,21 +697,25 @@ const ContractorPanel = ({ stats, roleKpis, role }) => {
           </div>
         </div>
 
+        {/* All-stage project counts so contractor can see full picture */}
         <div className="dashboard-card animate-fade-in animate-delay-4" style={{ gridColumn: 'span 2' }}>
           <div className="card-header">
-            <h3 className="card-title"><Clock size={18} /> Recent Activity</h3>
-            <Link to="/projects" className="btn btn-sm btn-outline">View Projects →</Link>
+            <h3 className="card-title"><Target size={18} /> Portfolio at a Glance</h3>
+            <Link to="/projects" className="btn btn-sm btn-outline">All Projects <ArrowRight size={13} /></Link>
           </div>
           <div className="card-body">
-            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#94a3b8' }}>
-              <Clock size={32} style={{ marginBottom: '0.75rem', opacity: 0.4 }} />
-              <p style={{ fontWeight: 600 }}>Activity feed coming soon</p>
-              <p style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                Project update logs will appear here once field reporting is enabled.
-              </p>
-              <Link to="/projects" className="btn btn-sm btn-outline" style={{ marginTop: '1rem', display: 'inline-flex' }}>
-                Browse Projects <ArrowRight size={14} style={{ marginLeft: 4 }} />
-              </Link>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.875rem' }}>
+              {[
+                { label: 'Total in System', value: stats?.total_projects ?? 0, color: '#6366f1' },
+                { label: 'In Construction', value: (['m1_foundation','m2_structure_erection','m3_covering_material','m4_trellising','m5_drip_fitting','m6_bed_preparation','m7_plantation'].reduce((s,k) => s + ((roleKpis?.stage_breakdown ?? stats?.stage_breakdown ?? {})[k] || 0), 0)), color: '#f59e0b' },
+                { label: 'Subsidy Stage', value: (['subsidy_claim','agency_inspection','committee_meeting'].reduce((s,k) => s + ((roleKpis?.stage_breakdown ?? stats?.stage_breakdown ?? {})[k] || 0), 0)), color: '#0ea5e9' },
+                { label: 'Completed', value: completed, color: '#22c55e' },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ textAlign: 'center', padding: '1rem', background: `${color}0a`, borderRadius: 12, border: `1px solid ${color}18` }}>
+                  <p style={{ fontSize: '1.6rem', fontWeight: 800, color, margin: '0 0 0.25rem', fontFamily: 'var(--font-display)' }}>{value}</p>
+                  <p style={{ fontSize: '0.75rem', color: '#64748b', margin: 0, fontWeight: 600 }}>{label}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -720,16 +724,16 @@ const ContractorPanel = ({ stats, roleKpis, role }) => {
   );
 };
 
-// ─── Role Configuration ────────────────────────────────────────────────────────
+// ─── Role Configuration — includes gradient header colors ─────────────────────
 const ROLE_CONFIG = {
-  project_manager:       { icon: '🧭', label: 'Project Manager Dashboard',        focus: 'Site Visits & Construction Milestones' },
-  bank_officer:          { icon: '🏦', label: 'Bank Officer Dashboard',           focus: 'Loan Sanctioning & Processing' },
-  agency_officer:        { icon: '🏛️', label: 'Agency Officer Dashboard',         focus: 'Subsidy Inspections & Committee Approvals' },
-  agronomist:            { icon: '🌿', label: 'Agronomist Dashboard',             focus: 'Crop Advisory & Pest Management' },
-  structure_contractor:  { icon: '🏗️', label: 'Structure Contractor Dashboard',   focus: 'Foundation & Structure Erection (M1–M4)' },
-  drip_contractor:       { icon: '💧', label: 'Drip Contractor Dashboard',        focus: 'Drip Fitting (M5)' },
-  bed_contractor:        { icon: '🌱', label: 'Bed Contractor Dashboard',         focus: 'Bed Preparation (M6)' },
-  plantation_contractor: { icon: '🪴', label: 'Plantation Contractor Dashboard',  focus: 'Seedling Plantation (M7)' },
+  project_manager:       { icon: '🧭', label: 'Project Manager Dashboard',        focus: 'Site Visits & Construction Milestones', gradient: 'linear-gradient(135deg, #1e3a5f 0%, #1d4ed8 50%, #3b82f6 100%)', shadow: 'rgba(29,78,216,0.25)' },
+  bank_officer:          { icon: '🏦', label: 'Bank Officer Dashboard',           focus: 'Loan Sanctioning & Processing',         gradient: 'linear-gradient(135deg, #78350f 0%, #d97706 50%, #fbbf24 100%)', shadow: 'rgba(217,119,6,0.25)'  },
+  agency_officer:        { icon: '🏛️', label: 'Agency Officer Dashboard',         focus: 'Subsidy Inspections & Committee Approvals', gradient: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 50%, #a78bfa 100%)', shadow: 'rgba(124,58,237,0.25)' },
+  agronomist:            { icon: '🌿', label: 'Agronomist Dashboard',             focus: 'Crop Advisory & Pest Management',       gradient: 'linear-gradient(135deg, #14532d 0%, #15803d 50%, #22c55e 100%)', shadow: 'rgba(21,128,61,0.25)'  },
+  structure_contractor:  { icon: '🏗️', label: 'Structure Contractor Dashboard',   focus: 'Foundation & Structure Erection (M1–M4)', gradient: 'linear-gradient(135deg, #7c2d12 0%, #c2410c 50%, #f97316 100%)', shadow: 'rgba(194,65,12,0.25)'  },
+  drip_contractor:       { icon: '💧', label: 'Drip Contractor Dashboard',        focus: 'Drip Fitting (M5)',                     gradient: 'linear-gradient(135deg, #0c4a6e 0%, #0369a1 50%, #0ea5e9 100%)', shadow: 'rgba(3,105,161,0.25)'  },
+  bed_contractor:        { icon: '🌱', label: 'Bed Contractor Dashboard',         focus: 'Bed Preparation (M6)',                  gradient: 'linear-gradient(135deg, #14532d 0%, #166534 50%, #22c55e 100%)', shadow: 'rgba(22,101,52,0.25)'  },
+  plantation_contractor: { icon: '🪴', label: 'Plantation Contractor Dashboard',  focus: 'Seedling Plantation (M7)',              gradient: 'linear-gradient(135deg, #4a1d96 0%, #6d28d9 50%, #8b5cf6 100%)', shadow: 'rgba(109,40,217,0.25)' },
 };
 
 // Roles that have a dedicated /dashboard/role-kpis endpoint on the backend.
@@ -757,23 +761,37 @@ const ManagerDashboard = ({ stats, error, user }) => {
 
   return (
     <div className="dashboard-container">
-      {/* Header */}
-      <div className="dashboard-header animate-fade-in">
-        <div className="dashboard-greeting">
-          <h1 className="dashboard-title">
-            {cfg.icon} {cfg.label}
-          </h1>
-          <p className="dashboard-subtitle">
-            Welcome, <strong>{user.first_name}</strong>! &nbsp;Focus: {cfg.focus}
-          </p>
-        </div>
-        <div className="dashboard-actions">
-          <Link to="/projects" className="btn btn-outline">
-            <Tractor size={16} /> Projects
-          </Link>
-          <Link to="/notifications" className="btn btn-primary">
-            <Bell size={16} /> Notifications
-          </Link>
+      {/* ── Gradient Hero Header ─────────────────────────────────────────── */}
+      <div style={{
+        background: cfg.gradient || 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+        borderRadius: 'var(--radius-xl)', padding: '1.75rem 2rem', marginBottom: '1.5rem',
+        boxShadow: `0 8px 32px ${cfg.shadow || 'rgba(0,0,0,0.2)'}`,
+      }} className="animate-fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', margin: 0, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
+              {cfg.icon} {cfg.label}
+            </h1>
+            <p style={{ color: 'rgba(255,255,255,0.7)', margin: '0.4rem 0 0', fontSize: '0.9rem' }}>
+              Welcome, <strong style={{ color: 'white' }}>{user.first_name}</strong> — {cfg.focus}
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.625rem' }}>
+            <Link to="/projects" style={{
+              background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.25)',
+              padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', fontWeight: 600,
+              textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(4px)',
+            }}>
+              <Tractor size={15} /> Projects
+            </Link>
+            <Link to="/notifications" style={{
+              background: 'white', color: '#1e293b',
+              padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', fontWeight: 700,
+              textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <Bell size={15} /> Alerts
+            </Link>
+          </div>
         </div>
       </div>
 

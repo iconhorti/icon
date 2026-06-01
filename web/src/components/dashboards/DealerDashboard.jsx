@@ -1,383 +1,369 @@
 /**
- * Dealer Dashboard
- * Portfolio-focused view with funnel stages, farmer metrics, and quick actions.
+ * Dealer Dashboard  v2
+ * — Gradient green hero header with chips (farmers, projects, completed)
+ * — Hero commission card (dark green, full-width): big earned number + pending + rate + subsidy portfolio
+ * — 3 KPI cards: In Onboarding (purple), In Construction (orange), Completed (green)
+ * — Pipeline breakdown: vertical tappable rows with left-color-border
+ * — Leaderboard: clean rank/name/count rows; "You" row highlighted in light green
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, Tractor, CheckCircle, Clock, UserPlus, ArrowRight,
-  TrendingUp, Landmark, Wallet, Target, Bell, ChevronRight, Activity, Award, IndianRupee, MapPin
+  TrendingUp, Wallet, Target, Bell, ChevronRight, Award, IndianRupee,
 } from 'lucide-react';
-import { FunnelChart, Funnel, LabelList, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import '../../pages/Dashboard.css';
 
 const formatInr = (n) => {
   if (!n) return '₹0';
-  if (n >= 10000000) return `₹${(n/10000000).toFixed(2)} Cr`;
-  if (n >= 100000)   return `₹${(n/100000).toFixed(1)} L`;
-  return `₹${Math.round(n||0).toLocaleString('en-IN')}`;
+  if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
+  if (n >= 100000)   return `₹${(n / 100000).toFixed(1)} L`;
+  return `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
 };
 
-const KpiCard = ({ icon: Icon, label, value, sub, color = 'primary' }) => (
-  <div className="kpi-card">
-    <div className={`kpi-icon ${color}`}>
-      <Icon size={24} />
+// ─── 3 pipeline KPI cards ─────────────────────────────────────────────────────
+const KpiCard = ({ icon: Icon, label, value, sub, color, bg, onClick }) => (
+  <div
+    className="kpi-card"
+    style={{ cursor: onClick ? 'pointer' : 'default', borderLeft: `4px solid ${color}` }}
+    onClick={onClick}
+  >
+    <div style={{ background: bg, borderRadius: 10, padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <Icon size={20} color={color} />
     </div>
     <div className="kpi-content">
       <p className="kpi-label">{label}</p>
-      <h3 className="kpi-value">{value}</h3>
+      <h3 className="kpi-value" style={{ color }}>{value}</h3>
       {sub && <p className="kpi-sub">{sub}</p>}
     </div>
+    {onClick && <ArrowRight size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />}
   </div>
 );
 
-const STAGE_FUNNEL = [
-  { key: 'farmer_onboarding',   label: 'Lead Generation',    color: '#6366f1' },
-  { key: 'document_collection', label: 'Document Collection', color: '#8b5cf6' },
-  { key: 'site_visit',          label: 'Site Visit',          color: '#0ea5e9' },
-  { key: 'design_boq',          label: 'Design & BOQ',       color: '#06b6d4' },
-  { key: 'dpr_ready',           label: 'DPR Ready',          color: '#14b8a6' },
+// ─── Pipeline row — tappable, left-color-border ───────────────────────────────
+const PipelineRow = ({ label, count, color, stage }) => (
+  <Link
+    to={`/projects?stage=${stage}`}
+    style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0.65rem 1rem', borderRadius: 10, textDecoration: 'none',
+      borderLeft: `3px solid ${color}`, background: `${color}08`,
+      marginBottom: '0.45rem', transition: 'background 0.15s',
+    }}
+  >
+    <span style={{ fontSize: '0.83rem', fontWeight: count > 0 ? 600 : 400, color: count > 0 ? '#374151' : '#94a3b8' }}>
+      {label}
+    </span>
+    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: count > 0 ? color : '#cbd5e1', minWidth: '2ch', textAlign: 'right' }}>
+      {count}
+    </span>
+  </Link>
+);
+
+// ─── Stage groups for pipeline breakdown ──────────────────────────────────────
+const PIPELINE_GROUPS = [
+  {
+    heading: 'Onboarding & Design',
+    color: '#6366f1',
+    stages: [
+      { key: 'draft',               label: 'Draft (Submitted)',    color: '#a78bfa' },
+      { key: 'farmer_onboarding',   label: 'Farmer Onboarding',    color: '#6366f1' },
+      { key: 'document_collection', label: 'Document Collection',   color: '#8b5cf6' },
+      { key: 'site_visit',          label: 'Site Visit',            color: '#0ea5e9' },
+      { key: 'design_boq',          label: 'Design & BOQ',         color: '#06b6d4' },
+      { key: 'dpr_ready',           label: 'DPR Ready',            color: '#14b8a6' },
+    ],
+  },
+  {
+    heading: 'Financial',
+    color: '#f59e0b',
+    stages: [
+      { key: 'bank_processing',  label: 'Bank Processing',  color: '#f59e0b' },
+      { key: 'goc_registration', label: 'GOC Registration', color: '#d97706' },
+    ],
+  },
+  {
+    heading: 'Construction',
+    color: '#ea580c',
+    stages: [
+      { key: 'm1_foundation',         label: 'M1 – Foundation',    color: '#f97316' },
+      { key: 'm2_structure_erection', label: 'M2 – Structure',     color: '#ea580c' },
+      { key: 'm3_covering_material',  label: 'M3 – Covering',      color: '#dc2626' },
+      { key: 'm4_trellising',         label: 'M4 – Trellising',    color: '#b91c1c' },
+      { key: 'm5_drip_fitting',       label: 'M5 – Drip Fitting',  color: '#7c3aed' },
+      { key: 'm6_bed_preparation',    label: 'M6 – Bed Prep',      color: '#a855f7' },
+      { key: 'm7_plantation',         label: 'M7 – Plantation',    color: '#6d28d9' },
+    ],
+  },
+  {
+    heading: 'Subsidy & Done',
+    color: '#22c55e',
+    stages: [
+      { key: 'subsidy_claim',     label: 'Subsidy Claim',     color: '#0ea5e9' },
+      { key: 'agency_inspection', label: 'Agency Inspection', color: '#2563eb' },
+      { key: 'committee_meeting', label: 'Committee Meeting', color: '#1d4ed8' },
+      { key: 'subsidy_released',  label: 'Subsidy Released',  color: '#22c55e' },
+      { key: 'completed',         label: 'Completed',         color: '#16a34a' },
+    ],
+  },
 ];
 
-const SUBSIDY_STAGES = [
-  { key: 'bank_processing',      label: 'Bank Processing',     color: '#f59e0b' },
-  { key: 'goc_registration',    label: 'GOC Registration',    color: '#d97706' },
-  { key: 'subsidy_claim',       label: 'Subsidy Claim',       color: '#0ea5e9' },
-  { key: 'agency_inspection',   label: 'Agency Inspection',  color: '#2563eb' },
-  { key: 'committee_meeting',   label: 'Committee Meeting',   color: '#7c3aed' },
-  { key: 'subsidy_released',    label: 'Subsidy Released',    color: '#22c55e' },
-];
-
-// --- MOCK DATA FOR DEALER ---
-// Replaced by stats.dealer_metrics
-
-
+// ─── DealerDashboard ──────────────────────────────────────────────────────────
 const DealerDashboard = ({ stats, error, user }) => {
-  const dealerMetrics = stats?.dealer_metrics || {};
-  const FUNNEL_DATA = dealerMetrics.funnel_data || [];
-  const LEADERBOARD = dealerMetrics.leaderboard || [];
-  const DISTRICT_DATA = dealerMetrics.district_data || [];
+  const dealerMetrics    = stats?.dealer_metrics || {};
+  const LEADERBOARD      = dealerMetrics.leaderboard || [];
+  const commission       = dealerMetrics.commission || {};
 
-  const myProjects  = stats?.total_projects   ?? 0;
-  const myFarmers   = stats?.total_farmers    ?? 0;
-  const completed   = stats?.completed        ?? 0;
-  const breakdown   = stats?.stage_breakdown  ?? {};
-  const commission  = dealerMetrics.commission || {};
-
-  const inPipeline = breakdown.farmer_onboarding || 0;
-  const inDocs = breakdown.document_collection || 0;
-  const inFinancial = (breakdown.bank_processing || 0) + (breakdown.goc_registration || 0);
-  const inConstruction = (breakdown.m1_foundation || 0) + (breakdown.m2_structure_erection || 0) +
-                         (breakdown.m3_covering_material || 0) + (breakdown.m4_trellising || 0) +
-                         (breakdown.m5_drip_fitting || 0) + (breakdown.m6_bed_preparation || 0) +
-                         (breakdown.m7_plantation || 0);
-  const inSubsidy = (breakdown.subsidy_claim || 0) + (breakdown.agency_inspection || 0) + (breakdown.committee_meeting || 0);
-
+  const myProjects       = stats?.total_projects   ?? 0;
+  const myFarmers        = stats?.total_farmers    ?? 0;
+  const completed        = stats?.completed        ?? 0;
+  const breakdown        = stats?.stage_breakdown  ?? {};
   const subsidyPotential = stats?.total_subsidy_potential ?? 0;
 
-  const maxFunnelCount = Math.max(...STAGE_FUNNEL.map(s => breakdown[s.key] || 0), 1);
+  const inOnboarding  = (breakdown['draft'] ?? 0) + (breakdown['farmer_onboarding'] ?? 0) + (breakdown['document_collection'] ?? 0);
+  const inConstruction = ['m1_foundation', 'm2_structure_erection', 'm3_covering_material',
+    'm4_trellising', 'm5_drip_fitting', 'm6_bed_preparation', 'm7_plantation']
+    .reduce((s, k) => s + (breakdown[k] ?? 0), 0);
+  const inSubsidy     = (breakdown['subsidy_claim'] ?? 0) + (breakdown['agency_inspection'] ?? 0) + (breakdown['committee_meeting'] ?? 0);
 
   return (
     <div className="dashboard-container">
-      {/* Header */}
-      <div className="dashboard-header animate-fade-in">
-        <div className="dashboard-greeting">
-          <h1 className="dashboard-title">
-            🤝 My Portfolio
-          </h1>
-          <p className="dashboard-subtitle">
-            Welcome back, {user.first_name}! Track your {myFarmers} farmers and {myProjects} projects.
-          </p>
-        </div>
-        <div className="dashboard-actions">
-          <Link to="/farmers/new" className="btn btn-primary">
-            <UserPlus size={16} /> Register Farmer
+
+      {/* ── Hero Header — gradient green ─────────────────────────────────────── */}
+      <div style={{
+        background: 'linear-gradient(135deg, #14532d 0%, #166534 40%, #15803d 100%)',
+        borderRadius: 'var(--radius-xl)', padding: '1.75rem 2rem', marginBottom: '1.5rem',
+        boxShadow: '0 8px 32px rgba(20,83,45,0.3)',
+      }} className="animate-fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', margin: 0, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
+              My Portfolio
+            </h1>
+            <p style={{ color: 'rgba(255,255,255,0.7)', margin: '0.25rem 0 0.75rem', fontSize: '0.9rem' }}>
+              Welcome back, {user.first_name}!
+            </p>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ background: 'rgba(255,255,255,0.15)', color: 'white', padding: '0.25rem 0.75rem', borderRadius: 999, fontSize: '0.78rem', fontWeight: 600, backdropFilter: 'blur(4px)' }}>
+                <Users size={11} style={{ display: 'inline', marginRight: 4 }} />{myFarmers} Farmers
+              </span>
+              <span style={{ background: 'rgba(255,255,255,0.15)', color: 'white', padding: '0.25rem 0.75rem', borderRadius: 999, fontSize: '0.78rem', fontWeight: 600, backdropFilter: 'blur(4px)' }}>
+                <Tractor size={11} style={{ display: 'inline', marginRight: 4 }} />{myProjects} Projects
+              </span>
+              <span style={{ background: 'rgba(34,197,94,0.3)', color: '#bbf7d0', padding: '0.25rem 0.75rem', borderRadius: 999, fontSize: '0.78rem', fontWeight: 700 }}>
+                <CheckCircle size={11} style={{ display: 'inline', marginRight: 4 }} />{completed} Completed
+              </span>
+            </div>
+          </div>
+          <Link to="/farmers/new" style={{
+            background: 'white', color: '#166534',
+            padding: '0.5rem 1.25rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', fontWeight: 700,
+            textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <UserPlus size={15} /> Register Farmer
           </Link>
         </div>
       </div>
 
-      {/* Alerts */}
+      {/* ── Alerts ──────────────────────────────────────────────────────────── */}
       {error && (
         <div className="alert-banner danger animate-fade-in">
           <Bell size={18} />
           <span className="alert-content">{error}</span>
         </div>
       )}
-
       {inSubsidy > 0 && (
         <div className="alert-banner info animate-fade-in">
           <TrendingUp size={18} />
           <span className="alert-content">
             <strong>{inSubsidy}</strong> project{inSubsidy > 1 ? 's' : ''} in subsidy processing
           </span>
-          <Link to="/projects" className="btn btn-sm btn-outline alert-action">View →</Link>
+          <Link to="/projects?stage=subsidy_claim" className="btn btn-sm btn-outline alert-action">View →</Link>
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="kpi-grid animate-fade-in animate-delay-1">
-        <KpiCard
-          icon={Users}
-          label="My Farmers"
-          value={myFarmers}
-          color="primary"
-          sub="Registered under you"
-        />
-        <KpiCard
-          icon={Tractor}
-          label="Total Projects"
-          value={myProjects}
-          color="warning"
-          sub="In your portfolio"
-        />
-        <KpiCard
-          icon={Target}
-          label="In Pipeline"
-          value={inPipeline + inDocs}
-          color="info"
-          sub="Leads & docs"
-        />
-        <KpiCard
-          icon={CheckCircle}
-          label="Completed"
-          value={completed}
-          color="success"
-          sub="Subsidy released"
-        />
-      </div>
-
-      {/* Main Content */}
-      <div className="dashboard-grid grid-main" style={{ gridTemplateColumns: '7fr 3fr' }}>
-        {/* Left Column */}
-        <div className="flex flex-col gap-3">
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            {/* Funnel Chart */}
-            <div className="dashboard-card animate-fade-in animate-delay-2">
-              <div className="card-header">
-                <h3 className="card-title"><Activity size={18} /> Conversion Funnel</h3>
-              </div>
-              <div className="card-body">
-                <ResponsiveContainer width="100%" height={300}>
-                  <FunnelChart>
-                    <RechartsTooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: 'var(--shadow-md)', background: 'var(--color-bg-card)', color: 'var(--color-text-main)' }}/>
-                    <Funnel dataKey="value" data={FUNNEL_DATA} isAnimationActive>
-                      <LabelList position="right" fill="var(--color-text-main)" stroke="none" dataKey="name" />
-                    </Funnel>
-                  </FunnelChart>
-                </ResponsiveContainer>
-              </div>
+      {/* ── Hero Commission Card — dark green, full width ───────────────────── */}
+      <div className="dashboard-card glass-card-dark animate-fade-in animate-delay-1" style={{ marginBottom: '1.25rem' }}>
+        <div className="card-header" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
+          <h3 className="card-title text-white"><IndianRupee size={17} /> Commission & Subsidy Portfolio</h3>
+        </div>
+        <div className="card-body">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem', padding: '0.5rem 0 1rem', textAlign: 'center' }}>
+            {/* Big earned number */}
+            <div>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Commission Earned</p>
+              <h2 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#34d399', margin: 0, fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
+                {commission.earned != null ? formatInr(commission.earned) : '—'}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: 4 }}>
+                From {completed} completed project{completed !== 1 ? 's' : ''}
+              </p>
             </div>
-
-            {/* Commissions Tracker */}
-            <div className="dashboard-card animate-fade-in animate-delay-2" style={{ background: 'var(--color-bg-base)' }}>
-              <div className="card-header" style={{ background: 'var(--color-bg-card)', borderRadius: '8px 8px 0 0' }}>
-                <h3 className="card-title"><IndianRupee size={18} /> Commission Tracker</h3>
-              </div>
-              <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', paddingTop: '1.5rem' }}>
-                <div style={{ padding: '1rem', background: '#fff', borderRadius: '8px', borderLeft: '4px solid #10b981', boxShadow: 'var(--shadow-sm)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Total Earned</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#10b981' }}>
-                    {commission.earned != null ? formatInr(commission.earned) : '—'}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>From {completed} completed project{completed !== 1 ? 's' : ''}</div>
-                </div>
-                <div style={{ padding: '1rem', background: '#fff', borderRadius: '8px', borderLeft: '4px solid #f59e0b', boxShadow: 'var(--shadow-sm)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Pending Payouts</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>
-                    {commission.pending != null ? formatInr(commission.pending) : '—'}
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>Active &amp; subsidy-stage projects</div>
-                </div>
-                <div style={{ padding: '1rem', background: '#fff', borderRadius: '8px', borderLeft: '4px solid #6366f1', boxShadow: 'var(--shadow-sm)' }}>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Commission Rate</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#6366f1' }}>
-                    {commission.rate_pct != null ? `${commission.rate_pct}%` : '—'}
-                    <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}> of project cost</span>
-                  </div>
-                </div>
-              </div>
+            <div>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending Payout</p>
+              <h2 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#fbbf24', margin: 0, fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
+                {commission.pending != null ? formatInr(commission.pending) : '—'}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: 4 }}>Active & subsidy-stage projects</p>
             </div>
-          </div>
-          {/* Lead Pipeline */}
-          <div className="dashboard-card animate-fade-in animate-delay-2">
-            <div className="card-header">
-              <h3 className="card-title">
-                <TrendingUp size={18} /> Lead Pipeline
-              </h3>
-              <Link to="/projects" className="btn btn-sm btn-outline">
-                All Projects <ArrowRight size={14} />
-              </Link>
+            <div>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Commission Rate</p>
+              <h2 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#a78bfa', margin: 0, fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
+                {commission.rate_pct != null ? `${commission.rate_pct}%` : '—'}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: 4 }}>of project cost</p>
             </div>
-            <div className="card-body">
-              <div className="bar-chart">
-                {STAGE_FUNNEL.map(({ key, label, color }) => {
-                  const count = breakdown[key] || 0;
-                  return (
-                    <div key={key} className="bar-item">
-                      <div className="bar-header">
-                        <span className="bar-label">{label}</span>
-                        <span className="bar-value">{count}</span>
-                      </div>
-                      <div className="bar-track">
-                        <div className="bar-fill" style={{ width: `${(count / maxFunnelCount) * 100}%`, background: color }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Construction Progress */}
-          <div className="dashboard-card animate-fade-in animate-delay-3">
-            <div className="card-header">
-              <h3 className="card-title">
-                <Clock size={18} /> Construction Progress
-              </h3>
-            </div>
-            <div className="card-body">
-              <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 0 }}>
-                <div className="text-center">
-                  <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#f59e0b' }}>{inConstruction}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#64748b' }}>Active Sites</p>
-                </div>
-                <div className="text-center">
-                  <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0ea5e9' }}>{inFinancial}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#64748b' }}>Bank Stage</p>
-                </div>
-                <div className="text-center">
-                  <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#8b5cf6' }}>{inSubsidy}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#64748b' }}>Subsidy</p>
-                </div>
-                <div className="text-center">
-                  <p style={{ fontSize: '1.5rem', fontWeight: 700, color: '#22c55e' }}>{completed}</p>
-                  <p style={{ fontSize: '0.7rem', color: '#64748b' }}>Done</p>
-                </div>
-              </div>
+            <div>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem', marginBottom: '0.3rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subsidy Portfolio</p>
+              <h2 style={{ fontSize: '2.2rem', fontWeight: 800, color: '#60a5fa', margin: 0, fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
+                {formatInr(subsidyPotential)}
+              </h2>
+              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginTop: 4 }}>50% govt subsidy potential</p>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Right Column */}
-        <div className="flex flex-col gap-3">
+      {/* ── 3 KPI Cards ─────────────────────────────────────────────────────── */}
+      <div className="kpi-grid animate-fade-in animate-delay-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
+        <KpiCard
+          icon={UserPlus}    label="In Onboarding"      value={inOnboarding}
+          color="#6366f1"   bg="#eef2ff"
+          sub={`Draft: ${breakdown['draft'] ?? 0}  ·  Onboarding: ${breakdown['farmer_onboarding'] ?? 0}  ·  Docs: ${breakdown['document_collection'] ?? 0}`}
+          onClick={() => { window.location.href = '/projects?stage=farmer_onboarding'; }}
+        />
+        <KpiCard
+          icon={Target}      label="In Construction"    value={inConstruction}
+          color="#ea580c"   bg="#fff7ed"
+          sub={`Sites active: M1–M7`}
+          onClick={() => { window.location.href = '/projects?stage=m1_foundation'; }}
+        />
+        <KpiCard
+          icon={CheckCircle} label="Completed"           value={completed}
+          color="#16a34a"   bg="#f0fdf4"
+          sub="Subsidy released"
+          onClick={() => { window.location.href = '/projects?stage=completed'; }}
+        />
+      </div>
+
+      {/* ── Main content: pipeline left, leaderboard right ───────────────────── */}
+      <div className="dashboard-grid animate-fade-in animate-delay-3" style={{ gridTemplateColumns: '3fr 2fr', gap: '1.25rem', marginTop: '1.25rem' }}>
+
+        {/* Left — Pipeline breakdown ── */}
+        <div className="dashboard-card">
+          <div className="card-header">
+            <h3 className="card-title"><TrendingUp size={17} /> Pipeline Breakdown</h3>
+            <Link to="/projects" className="btn btn-sm btn-outline">All Projects <ArrowRight size={13} /></Link>
+          </div>
+          <div className="card-body">
+            {PIPELINE_GROUPS.map(group => {
+              const groupTotal = group.stages.reduce((s, st) => s + (breakdown[st.key] ?? 0), 0);
+              return (
+                <div key={group.heading} style={{ marginBottom: '1.25rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: group.color, flexShrink: 0 }} />
+                    <span style={{ fontSize: '0.72rem', fontWeight: 800, color: group.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {group.heading}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', color: '#94a3b8', marginLeft: 'auto', fontWeight: 600 }}>
+                      {groupTotal} project{groupTotal !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  {group.stages.map(({ key, label, color }) => (
+                    <PipelineRow key={key} stage={key} label={label} count={breakdown[key] ?? 0} color={color} />
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right — Leaderboard + quick actions ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
           {/* Leaderboard */}
-          <div className="dashboard-card animate-fade-in animate-delay-2">
+          <div className="dashboard-card animate-fade-in">
             <div className="card-header">
-              <h3 className="card-title"><Award size={18} /> Regional Ranking</h3>
+              <h3 className="card-title"><Award size={17} /> Regional Ranking</h3>
             </div>
             <div className="card-body" style={{ padding: '0.5rem 0' }}>
-               {LEADERBOARD.map((l, i) => (
-                 <div key={i} style={{ 
-                   display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-                   padding: '0.75rem 1.5rem', borderBottom: '1px solid var(--glass-border)',
-                   background: l.isMe ? 'rgba(99, 102, 241, 0.05)' : 'transparent'
-                 }}>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                     <div style={{ 
-                       width: '28px', height: '28px', borderRadius: '50%', 
-                       background: i === 0 ? '#fbbf24' : i === 1 ? '#94a3b8' : '#cd7f32',
-                       color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold'
-                     }}>
-                       #{i+1}
-                     </div>
-                     <div>
-                       <div style={{ fontWeight: l.isMe ? 700 : 500, color: l.isMe ? 'var(--color-primary)' : 'var(--color-text-main)' }}>
-                         {l.name} {l.isMe ? '(You)' : ''}
-                       </div>
-                       <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '2px' }}>
-                          <MapPin size={10} /> {l.location}
-                       </div>
-                     </div>
-                   </div>
-                   <div style={{ fontWeight: 600, color: 'var(--color-text-main)' }}>
-                     {l.projects}
-                   </div>
-                 </div>
-               ))}
-               {(() => {
-                 if (!LEADERBOARD.length) return null;
-                 const rank1 = LEADERBOARD[0];
-                 const me = LEADERBOARD.find(l => l.isMe);
-                 if (!me) return null;
-                 if (rank1.isMe) return (
-                   <div style={{ padding: '0.75rem 1.5rem', textAlign: 'center', fontSize: '0.8rem', color: '#22c55e', fontWeight: 600 }}>
-                     You&apos;re #1 in your region!
-                   </div>
-                 );
-                 const gap = rank1.projects - me.projects;
-                 return (
-                   <div style={{ padding: '0.75rem 1.5rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                     You are {gap} project{gap !== 1 ? 's' : ''} away from Rank #1.
-                   </div>
-                 );
-               })()}
-            </div>
-          </div>
-          {/* Subsidy Portfolio */}
-          <div className="dashboard-card glass-card-dark animate-fade-in animate-delay-2">
-            <div className="card-header" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-              <h3 className="card-title text-white">
-                <Wallet size={18} /> Subsidy Portfolio
-              </h3>
-            </div>
-            <div className="card-body">
-              <div className="text-center" style={{ padding: '1rem 0' }}>
-                <p className="revenue-label">Total Potential Subsidy</p>
-                <h3 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
-                  {formatInr(subsidyPotential)}
-                </h3>
-                <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>
-                  50% government subsidy on eligible costs
-                </p>
-              </div>
-              <div className="data-list" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
-                <div className="data-row" style={{ color: 'white' }}>
-                  <span className="data-row-sub" style={{ color: 'rgba(255,255,255,0.6)' }}>Farmers</span>
-                  <span className="data-row-value" style={{ color: 'white' }}>{myFarmers}</span>
-                </div>
-                <div className="data-row" style={{ color: 'white' }}>
-                  <span className="data-row-sub" style={{ color: 'rgba(255,255,255,0.6)' }}>In Pipeline</span>
-                  <span className="data-row-value" style={{ color: '#fbbf24' }}>{inPipeline + inDocs}</span>
-                </div>
-                <div className="data-row" style={{ color: 'white' }}>
-                  <span className="data-row-sub" style={{ color: 'rgba(255,255,255,0.6)' }}>In Construction</span>
-                  <span className="data-row-value" style={{ color: '#f59e0b' }}>{inConstruction}</span>
-                </div>
-                <div className="data-row" style={{ color: 'white' }}>
-                  <span className="data-row-sub" style={{ color: 'rgba(255,255,255,0.6)' }}>Subsidy Processing</span>
-                  <span className="data-row-value" style={{ color: '#60a5fa' }}>{inSubsidy}</span>
-                </div>
-              </div>
+              {LEADERBOARD.length === 0 ? (
+                <p className="text-muted text-center" style={{ padding: '1.5rem' }}>No ranking data yet.</p>
+              ) : (
+                <>
+                  {LEADERBOARD.map((l, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '0.875rem',
+                        padding: '0.65rem 1.25rem',
+                        borderBottom: '1px solid #f1f5f9',
+                        background: l.isMe ? '#f0fdf4' : 'transparent',
+                        borderLeft: l.isMe ? '3px solid #22c55e' : '3px solid transparent',
+                      }}
+                    >
+                      {/* Rank badge */}
+                      <div style={{
+                        width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                        background: i === 0 ? '#fbbf24' : i === 1 ? '#94a3b8' : i === 2 ? '#b45309' : '#e2e8f0',
+                        color: i < 3 ? 'white' : '#64748b',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '0.75rem', fontWeight: 800,
+                      }}>
+                        #{i + 1}
+                      </div>
+                      {/* Name */}
+                      <span style={{ flex: 1, fontWeight: l.isMe ? 700 : 500, color: l.isMe ? '#166534' : '#374151', fontSize: '0.85rem' }}>
+                        {l.name}{l.isMe ? ' (You)' : ''}
+                      </span>
+                      {/* Projects count */}
+                      <span style={{ fontWeight: 700, fontSize: '1rem', color: l.isMe ? '#16a34a' : '#1e293b', fontFamily: 'var(--font-display)' }}>
+                        {l.projects}
+                      </span>
+                    </div>
+                  ))}
+                  {/* Rank gap message */}
+                  {(() => {
+                    const me = LEADERBOARD.find(l => l.isMe);
+                    const rank1 = LEADERBOARD[0];
+                    if (!me) return null;
+                    if (rank1.isMe) return (
+                      <p style={{ padding: '0.75rem 1.25rem', textAlign: 'center', fontSize: '0.8rem', color: '#16a34a', fontWeight: 700 }}>
+                        You are #1 in your region!
+                      </p>
+                    );
+                    const gap = rank1.projects - me.projects;
+                    return (
+                      <p style={{ padding: '0.75rem 1.25rem', textAlign: 'center', fontSize: '0.8rem', color: '#64748b' }}>
+                        {gap} project{gap !== 1 ? 's' : ''} away from Rank #1
+                      </p>
+                    );
+                  })()}
+                </>
+              )}
             </div>
           </div>
 
           {/* Quick Actions */}
-          <div className="dashboard-card animate-fade-in animate-delay-3">
+          <div className="dashboard-card animate-fade-in">
             <div className="card-header">
-              <h3 className="card-title">⚡ Quick Actions</h3>
+              <h3 className="card-title">Quick Actions</h3>
             </div>
             <div className="card-body" style={{ padding: '0.75rem' }}>
               {[
-                { label: 'Register New Farmer', to: '/farmers/new', icon: '👨‍🌾', bg: 'rgba(26,71,42,0.1)', color: 'var(--color-primary)' },
-                { label: 'View My Projects', to: '/projects', icon: '📋', bg: '#e0f2fe', color: '#0ea5e9' },
-                { label: 'My Farmer List', to: '/farmers', icon: '👥', bg: '#f5f3ff', color: '#8b5cf6' },
+                { label: 'Register New Farmer', to: '/farmers/new',  icon: '👨‍🌾', bg: 'rgba(26,71,42,0.1)' },
+                { label: 'View My Projects',    to: '/projects',      icon: '📋', bg: '#e0f2fe'           },
+                { label: 'My Farmer List',      to: '/farmers',       icon: '👥', bg: '#f5f3ff'           },
               ].map(action => (
-                <Link
-                  key={action.to + action.label}
-                  to={action.to}
-                  className="quick-action-btn"
-                  style={{ padding: '0.875rem' }}
-                >
-                  <span className="quick-action-icon" style={{ background: action.bg }}>
-                    {action.icon}
-                  </span>
+                <Link key={action.to + action.label} to={action.to} className="quick-action-btn" style={{ padding: '0.875rem' }}>
+                  <span className="quick-action-icon" style={{ background: action.bg }}>{action.icon}</span>
                   <span className="quick-action-label" style={{ textAlign: 'left', flex: 1 }}>{action.label}</span>
                   <ChevronRight size={16} style={{ color: '#94a3b8' }} />
                 </Link>
               ))}
             </div>
           </div>
+
         </div>
       </div>
     </div>

@@ -1,19 +1,18 @@
 /**
- * Farmer Dashboard  v2
- * ─ Added:   4 KPI stat cards (Progress %, Subsidy, Project Cost, Days Running)
- * ─ Fixed:   project.created_at, land_area, project_code now from real backend fields
- * ─ Removed: fake EMI Tracker (hardcoded ₹12,450 / ₹2,50,000)
- * ─ Removed: fake Weather widget (hardcoded Nashik 28°C)
- * ─ Removed: broken /appointments link (route doesn't exist)
- * ─ Removed: Construction Photos stub (non-functional placeholder)
- * ─ Replaced: Subsidy card now uses real total_subsidy_proposed from backend
+ * Farmer Dashboard  v3
+ * — Gradient green hero header: project name + code as subtitle, current stage chip
+ * — Hero progress card: thick progress bar + current/next stage
+ * — 3 info cards in a row: Govt Subsidy, Your Investment, Days Running
+ * — Action required: documents checklist per stage (clean card with checkbox icons)
+ * — Project details: clean data rows
+ * — "No project yet" empty state unchanged
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
   CheckCircle, Clock, ArrowRight, FileText, Landmark, Building2,
-  MapPin, Calendar, Bell, Home, TrendingUp, IndianRupee,
-  MessageCircle, Activity, Leaf
+  MapPin, Calendar, Bell, Home, IndianRupee,
+  MessageCircle, Activity, Leaf,
 } from 'lucide-react';
 import '../../pages/Dashboard.css';
 
@@ -49,20 +48,19 @@ const STAGE_DOCS = {
   subsidy_claim:       ['All Milestone Photos', 'CA Certificate', 'Claim Form'],
 };
 
-// Stage group → friendly badge
+// Stage current-status chip
 const getStageBadge = (stage) => {
-  if (!stage)                            return { label: 'Not Started',        cls: 'badge-secondary', color: '#64748b' };
-  if (stage === 'completed')             return { label: 'Completed',          cls: 'badge-success',   color: '#16a34a' };
-  if (stage === 'subsidy_released')      return { label: 'Subsidy Released',   cls: 'badge-success',   color: '#22c55e' };
-  if (['agency_inspection','committee_meeting','subsidy_claim'].includes(stage))
-                                         return { label: 'Subsidy Processing', cls: 'badge-info',      color: '#0ea5e9' };
-  if (stage.startsWith('m'))             return { label: 'Under Construction', cls: 'badge-warning',   color: '#f59e0b' };
-  if (['bank_processing','goc_registration'].includes(stage))
-                                         return { label: 'Financial Stage',    cls: 'badge-info',      color: '#3b82f6' };
-  return                                        { label: 'In Progress',        cls: 'badge-warning',   color: '#f59e0b' };
+  if (!stage)                            return { label: 'Not Started',        color: '#64748b', bg: '#f1f5f9' };
+  if (stage === 'completed')             return { label: 'Completed',          color: '#16a34a', bg: '#dcfce7' };
+  if (stage === 'subsidy_released')      return { label: 'Subsidy Released',   color: '#22c55e', bg: '#f0fdf4' };
+  if (['agency_inspection', 'committee_meeting', 'subsidy_claim'].includes(stage))
+                                         return { label: 'Subsidy Processing', color: '#0ea5e9', bg: '#e0f2fe' };
+  if (stage.startsWith('m'))             return { label: 'Under Construction', color: '#f59e0b', bg: '#fffbeb' };
+  if (['bank_processing', 'goc_registration'].includes(stage))
+                                         return { label: 'Financial Stage',    color: '#3b82f6', bg: '#eff6ff' };
+  return                                        { label: 'In Progress',        color: '#f59e0b', bg: '#fffbeb' };
 };
 
-// Format ₹ amounts
 const fmtInr = (n) => {
   if (!n || n <= 0) return '₹0';
   if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
@@ -70,24 +68,11 @@ const fmtInr = (n) => {
   return `₹${Math.round(n).toLocaleString('en-IN')}`;
 };
 
-// Days since a date string
 const daysSince = (iso) => {
   if (!iso) return null;
   const ms = Date.now() - new Date(iso).getTime();
   return Math.max(0, Math.floor(ms / 86400000));
 };
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-const KpiCard = ({ icon: Icon, label, value, sub, color = 'primary' }) => (
-  <div className={`kpi-card ${color}`}>
-    <div className={`kpi-icon ${color}`}><Icon size={22} /></div>
-    <div className="kpi-content">
-      <p className="kpi-label">{label}</p>
-      <h3 className="kpi-value">{value}</h3>
-      {sub && <p className="kpi-sub">{sub}</p>}
-    </div>
-  </div>
-);
 
 // ─── FarmerDashboard ──────────────────────────────────────────────────────────
 const FarmerDashboard = ({ stats, error, user }) => {
@@ -100,15 +85,13 @@ const FarmerDashboard = ({ stats, error, user }) => {
   const stageBadge = getStageBadge(stage);
   const docs = stage ? (STAGE_DOCS[stage] ?? []) : [];
 
-  // Financials — prefer real subsidy field, fall back to 50% estimate
   const projectCost = project?.estimated_project_cost ?? 0;
   const subsidyAmt  = project?.total_subsidy_proposed
                         ? project.total_subsidy_proposed
                         : projectCost * 0.5;
   const yourCost    = projectCost - subsidyAmt;
 
-  // Dates
-  const startDate  = project?.actual_start_date || project?.created_at;
+  const startDate   = project?.actual_start_date || project?.created_at;
   const daysRunning = daysSince(startDate);
 
   // ── No project yet ────────────────────────────────────────────────────────
@@ -117,7 +100,7 @@ const FarmerDashboard = ({ stats, error, user }) => {
       <div className="dashboard-container">
         <div className="dashboard-header animate-fade-in">
           <div className="dashboard-greeting">
-            <h1 className="dashboard-title">🌱 My Project</h1>
+            <h1 className="dashboard-title">My Project</h1>
             <p className="dashboard-subtitle">Welcome, {user.first_name}!</p>
           </div>
         </div>
@@ -143,22 +126,37 @@ const FarmerDashboard = ({ stats, error, user }) => {
   return (
     <div className="dashboard-container">
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="dashboard-header animate-fade-in">
-        <div className="dashboard-greeting">
-          <h1 className="dashboard-title">🌱 My Project</h1>
-          <p className="dashboard-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
-            <span style={{ fontWeight: 600, color: 'var(--color-text-main)' }}>
+      {/* ── Hero Header — gradient green ──────────────────────────────────── */}
+      <div style={{
+        background: 'linear-gradient(135deg, #14532d 0%, #15803d 50%, #16a34a 100%)',
+        borderRadius: 'var(--radius-xl)', padding: '1.75rem 2rem', marginBottom: '1.5rem',
+        boxShadow: '0 8px 32px rgba(20,83,45,0.3)',
+      }} className="animate-fade-in">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'white', margin: 0, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
               {project.project_name || `Project #${project.id}`}
-            </span>
-            {project.project_code && (
-              <span className="badge badge-secondary">{project.project_code}</span>
-            )}
-          </p>
-        </div>
-        <div className="dashboard-actions">
-          <Link to={`/projects/${project.id}`} className="btn btn-primary">
-            <Building2 size={16} /> View Full Details
+            </h1>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              {project.project_code && (
+                <span style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.9)', padding: '0.2rem 0.6rem', borderRadius: 999, fontSize: '0.78rem', fontWeight: 600 }}>
+                  {project.project_code}
+                </span>
+              )}
+              <span style={{
+                background: `${stageBadge.bg}cc`, color: stageBadge.color,
+                padding: '0.2rem 0.75rem', borderRadius: 999, fontSize: '0.78rem', fontWeight: 700,
+              }}>
+                {stageBadge.label}
+              </span>
+            </div>
+          </div>
+          <Link to={`/projects/${project.id}`} style={{
+            background: 'white', color: '#166534',
+            padding: '0.5rem 1.25rem', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', fontWeight: 700,
+            textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Building2 size={15} /> View Full Details
           </Link>
         </div>
       </div>
@@ -171,104 +169,101 @@ const FarmerDashboard = ({ stats, error, user }) => {
         </div>
       )}
 
-      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
-      <div className="kpi-grid animate-fade-in animate-delay-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        <KpiCard
-          icon={Activity}
-          label="Project Progress"
-          value={`${pct}%`}
-          color="primary"
-          sub={`Stage ${stageIdx + 1} of ${STAGES.length}: ${currentStageData?.label ?? '—'}`}
-        />
-        <KpiCard
-          icon={IndianRupee}
-          label="Govt. Subsidy (50%)"
-          value={fmtInr(subsidyAmt)}
-          color="success"
-          sub={`Your cost: ${fmtInr(yourCost)}`}
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label="Project Cost"
-          value={fmtInr(projectCost)}
-          color="warning"
-          sub={project.area_type ? `Type: ${project.area_type}` : 'Total eligible cost'}
-        />
-        <KpiCard
-          icon={Calendar}
-          label="Days Running"
-          value={daysRunning !== null ? daysRunning : '—'}
-          color="info"
-          sub={startDate ? `Started ${new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Start date pending'}
-        />
+      {/* ── Hero Progress Card (dark) ─────────────────────────────────────── */}
+      <div className="dashboard-card glass-card-dark animate-fade-in animate-delay-1" style={{ marginBottom: '1.25rem' }}>
+        <div className="card-body" style={{ padding: '1.75rem 2rem' }}>
+          <div style={{ maxWidth: 560, margin: '0 auto', textAlign: 'center' }}>
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: '0.3rem', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              Stage {stageIdx + 1} of {STAGES.length} — {currentStageData?.group} Phase
+            </p>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: '#fbbf24', margin: '0 0 1.5rem', fontFamily: 'var(--font-display)' }}>
+              {currentStageData?.label ?? 'Not Started'}
+            </h2>
+
+            {/* Thick progress bar */}
+            <div style={{ marginBottom: '0.6rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.78rem' }}>Overall Progress</span>
+                <span style={{ color: '#fbbf24', fontSize: '1rem', fontWeight: 800, fontFamily: 'var(--font-display)' }}>{pct}%</span>
+              </div>
+              <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 999, height: 16, overflow: 'hidden' }}>
+                <div style={{
+                  width: `${pct}%`, height: '100%', borderRadius: 999,
+                  background: 'linear-gradient(90deg, #22c55e 0%, #fbbf24 100%)',
+                  transition: 'width 1s ease',
+                  boxShadow: '0 0 12px rgba(251,191,36,0.35)',
+                }} />
+              </div>
+            </div>
+
+            {nextStage ? (
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem', marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                Next: <strong style={{ color: 'white' }}>{nextStage.label}</strong> <ArrowRight size={13} />
+              </p>
+            ) : (
+              <p style={{ color: '#22c55e', fontSize: '0.9rem', fontWeight: 700, marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <CheckCircle size={16} /> Project Complete!
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── 3 Info Cards ─────────────────────────────────────────────────── */}
+      <div className="kpi-grid animate-fade-in animate-delay-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '1.25rem' }}>
+        {/* Government Subsidy */}
+        <div className="dashboard-card" style={{ borderLeft: '4px solid #16a34a', textAlign: 'center', padding: '1.25rem' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+            <IndianRupee size={20} color="#16a34a" />
+          </div>
+          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 600 }}>Government Subsidy</p>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a', margin: '0 0 0.25rem', fontFamily: 'var(--font-display)' }}>
+            {fmtInr(subsidyAmt)}
+          </h3>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>
+            {project.total_subsidy_proposed ? 'Proposed subsidy' : 'est. 50% of project cost'}
+          </p>
+        </div>
+
+        {/* Your Investment */}
+        <div className="dashboard-card" style={{ borderLeft: '4px solid #d97706', textAlign: 'center', padding: '1.25rem' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+            <Home size={20} color="#d97706" />
+          </div>
+          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 600 }}>Your Investment</p>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#d97706', margin: '0 0 0.25rem', fontFamily: 'var(--font-display)' }}>
+            {fmtInr(yourCost)}
+          </h3>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>
+            Project cost minus subsidy
+          </p>
+        </div>
+
+        {/* Days Running */}
+        <div className="dashboard-card" style={{ borderLeft: '4px solid #0ea5e9', textAlign: 'center', padding: '1.25rem' }}>
+          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
+            <Calendar size={20} color="#0ea5e9" />
+          </div>
+          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 600 }}>Days Running</p>
+          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0ea5e9', margin: '0 0 0.25rem', fontFamily: 'var(--font-display)' }}>
+            {daysRunning !== null ? daysRunning : '—'}
+          </h3>
+          <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>
+            {startDate ? `Started ${new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Start date pending'}
+          </p>
+        </div>
       </div>
 
       {/* ── Main content grid ─────────────────────────────────────────────── */}
-      <div className="dashboard-grid grid-main" style={{ gap: '1.25rem' }}>
+      <div className="dashboard-grid grid-main animate-fade-in animate-delay-3" style={{ gap: '1.25rem' }}>
 
-        {/* Left column */}
+        {/* Left column — Stage Timeline */}
         <div className="flex flex-col gap-3">
-
-          {/* Current Stage card (dark) */}
-          <div className="dashboard-card glass-card-dark animate-fade-in animate-delay-2">
-            <div className="card-header" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
-              <h3 className="card-title text-white"><MapPin size={16} /> Current Stage</h3>
-              <span style={{
-                padding: '0.2rem 0.65rem', borderRadius: '999px',
-                fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.04em',
-                background: `${stageBadge.color}30`, color: stageBadge.color,
-                border: `1px solid ${stageBadge.color}50`,
-              }}>
-                {stageBadge.label}
-              </span>
-            </div>
-            <div className="card-body">
-              <div className="text-center" style={{ padding: '0.75rem 0' }}>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.78rem', marginBottom: '0.3rem' }}>
-                  Stage {stageIdx + 1} of {STAGES.length} · {currentStageData?.group} Phase
-                </p>
-                <h3 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fbbf24', margin: '0 0 1.25rem', fontFamily: 'var(--font-display)' }}>
-                  {currentStageData?.label ?? 'Not Started'}
-                </h3>
-
-                {/* Progress bar */}
-                <div style={{ margin: '0 auto 1.25rem', maxWidth: 320 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
-                    <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: '0.75rem' }}>Overall Progress</span>
-                    <span style={{ color: '#fbbf24', fontSize: '0.85rem', fontWeight: 800 }}>{pct}%</span>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 999, height: 10 }}>
-                    <div style={{
-                      width: `${pct}%`,
-                      background: 'linear-gradient(90deg, #22c55e, #fbbf24)',
-                      height: '100%', borderRadius: 999,
-                      transition: 'width 1s ease',
-                      boxShadow: '0 0 8px rgba(251,191,36,0.4)',
-                    }} />
-                  </div>
-                </div>
-
-                {nextStage ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: 'rgba(255,255,255,0.65)', fontSize: '0.83rem' }}>
-                    <span>Next:</span>
-                    <span style={{ color: 'white', fontWeight: 700 }}>{nextStage.label}</span>
-                    <ArrowRight size={13} />
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', color: '#22c55e', fontSize: '0.85rem', fontWeight: 700 }}>
-                    <CheckCircle size={16} /> Project Complete!
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Stage Timeline */}
-          <div className="dashboard-card animate-fade-in animate-delay-2">
+          <div className="dashboard-card">
             <div className="card-header">
               <h3 className="card-title"><Clock size={16} /> Project Timeline</h3>
             </div>
-            <div className="card-body" style={{ maxHeight: 340, overflowY: 'auto', padding: '1rem 1.375rem' }}>
+            <div className="card-body" style={{ maxHeight: 360, overflowY: 'auto', padding: '1rem 1.375rem' }}>
               <div className="stage-progress">
                 {STAGES.map((s, i) => {
                   const done    = i < stageIdx;
@@ -280,7 +275,6 @@ const FarmerDashboard = ({ stats, error, user }) => {
                         style={{
                           background: done ? '#22c55e' : current ? s.color : '#e2e8f0',
                           boxShadow: current ? `0 0 0 3px ${s.color}33` : 'none',
-                          position: 'relative',
                         }}
                       />
                       <div className="stage-info">
@@ -305,38 +299,8 @@ const FarmerDashboard = ({ stats, error, user }) => {
         {/* Right column */}
         <div className="flex flex-col gap-3">
 
-          {/* Subsidy Breakdown — real data */}
-          <div className="dashboard-card animate-fade-in animate-delay-2">
-            <div className="card-header">
-              <h3 className="card-title"><Landmark size={16} /> Subsidy Breakdown</h3>
-            </div>
-            <div className="card-body">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.875rem', background: '#f8fafc', borderRadius: 12, border: '1px solid #e9ecef' }}>
-                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Total Project Cost</span>
-                  <strong style={{ color: 'var(--color-text-main)' }}>{fmtInr(projectCost)}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.875rem', background: 'rgba(26,71,42,0.06)', borderRadius: 12, border: '1px solid rgba(26,71,42,0.12)' }}>
-                  <span style={{ color: 'var(--color-primary)', fontWeight: 700, fontSize: '0.85rem' }}>
-                    Govt. Subsidy{project?.total_subsidy_proposed ? '' : ' (est. 50%)'}
-                  </span>
-                  <strong style={{ color: 'var(--color-success)', fontSize: '1.05rem' }}>{fmtInr(subsidyAmt)}</strong>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.875rem', background: '#fffbeb', borderRadius: 12, border: '1px solid #fef3c7' }}>
-                  <span style={{ color: '#92400e', fontSize: '0.85rem' }}>Your Investment</span>
-                  <strong style={{ color: '#d97706' }}>{fmtInr(yourCost)}</strong>
-                </div>
-              </div>
-              <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#eff6ff', borderRadius: 10, borderLeft: '3px solid #3b82f6' }}>
-                <p style={{ fontSize: '0.78rem', color: '#1d4ed8', fontWeight: 600, margin: 0 }}>
-                  💡 Subsidy is released after agency inspection and committee approval.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {/* Action Required — document checklist */}
-          <div className="dashboard-card animate-fade-in animate-delay-3">
+          <div className="dashboard-card">
             <div className="card-header">
               <h3 className="card-title"><FileText size={16} /> Action Required</h3>
             </div>
@@ -348,10 +312,8 @@ const FarmerDashboard = ({ stats, error, user }) => {
                   </p>
                   <div className="data-list">
                     {docs.map((d) => (
-                      <div key={d} className="data-row" style={{ padding: '0.625rem 0' }}>
-                        <div className="data-row-info">
-                          <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{d}</span>
-                        </div>
+                      <div key={d} className="data-row" style={{ padding: '0.625rem 0', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{d}</span>
                         <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid #e2e8f0', flexShrink: 0 }} />
                       </div>
                     ))}
@@ -373,7 +335,7 @@ const FarmerDashboard = ({ stats, error, user }) => {
           </div>
 
           {/* Project Details — real fields */}
-          <div className="dashboard-card animate-fade-in animate-delay-3">
+          <div className="dashboard-card">
             <div className="card-header">
               <h3 className="card-title"><Home size={16} /> Project Details</h3>
             </div>
@@ -426,8 +388,8 @@ const FarmerDashboard = ({ stats, error, user }) => {
             </div>
           </div>
 
-          {/* Need Help — fixed links */}
-          <div className="dashboard-card animate-fade-in animate-delay-4" style={{ border: '1px dashed rgba(0,0,0,0.1)' }}>
+          {/* Need Help */}
+          <div className="dashboard-card" style={{ border: '1px dashed rgba(0,0,0,0.1)' }}>
             <div className="card-body" style={{ textAlign: 'center', padding: '1.5rem' }}>
               <p style={{ fontWeight: 700, marginBottom: '0.25rem', color: 'var(--color-text-main)' }}>Need Assistance?</p>
               <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>Contact your ICON dealer or check notifications</p>
@@ -438,6 +400,7 @@ const FarmerDashboard = ({ stats, error, user }) => {
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </div>

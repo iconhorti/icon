@@ -12,11 +12,8 @@ import { Link } from 'react-router-dom';
 import {
   Tractor, Landmark, CheckCircle, Clock, Users, TrendingUp,
   BarChart2, AlertTriangle, ArrowRight, Building2,
-  FileText, Hammer, X, MapPin,
+  FileText, Hammer, X,
 } from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
-} from 'recharts';
 import { getProjects } from '../../api/client';
 import '../../pages/Dashboard.css';
 
@@ -127,8 +124,6 @@ const AdminDashboard = ({ stats, error, user }) => {
   const rc             = stats?.role_counts    ?? {};
   const stageBreakdown = stats?.stage_breakdown ?? {};
   const adminMetrics   = stats?.admin_metrics  || {};
-  const REGION_DATA    = adminMetrics.region_data || [];
-  const AREA_DATA      = adminMetrics.area_data   || [];
   const kpis           = adminMetrics.kpis        || {};
 
   // Grouped stage counts
@@ -349,51 +344,6 @@ const AdminDashboard = ({ stats, error, user }) => {
             </div>
           </div>
 
-          {/* Regional Concentration — real data ─────────────────────────── */}
-          {REGION_DATA.length > 0 && (
-            <div className="dashboard-card animate-fade-in animate-delay-2">
-              <div className="card-header">
-                <h3 className="card-title"><MapPin size={17} /> Regional Concentration</h3>
-              </div>
-              <div className="card-body" style={{ padding: '1rem 0.5rem 0.5rem' }}>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={REGION_DATA} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} width={28} />
-                    <Tooltip
-                      cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                      contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '0.82rem' }}
-                    />
-                    <Bar dataKey="count" name="Projects" fill="var(--color-primary)" radius={[5, 5, 0, 0]} barSize={28} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* Areawise Distribution — real data ──────────────────────────── */}
-          {AREA_DATA.length > 0 && (
-            <div className="dashboard-card animate-fade-in animate-delay-2">
-              <div className="card-header">
-                <h3 className="card-title"><MapPin size={17} /> Areawise Project Distribution</h3>
-              </div>
-              <div className="card-body" style={{ padding: '1rem 0.5rem 0.5rem' }}>
-                <ResponsiveContainer width="100%" height={200}>
-                  <BarChart data={AREA_DATA} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} width={28} />
-                    <Tooltip
-                      cursor={{ fill: 'rgba(0,0,0,0.04)' }}
-                      contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '0.82rem' }}
-                    />
-                    <Bar dataKey="count" name="Projects" fill="#3b82f6" radius={[5, 5, 0, 0]} barSize={28} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right column */}
