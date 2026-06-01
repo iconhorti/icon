@@ -2,31 +2,34 @@
  * ICON APP — Role-based Dashboard Router
  *
  * Role → Dashboard mapping:
- *   admin / owner / office_staff                    → AdminDashboard   (full system overview)
- *   dealer                                          → DealerDashboard  (portfolio + farmers)
- *   farmer                                          → FarmerDashboard  (project tracker)
- *   project_manager                                 → ManagerDashboard (PM panel)
- *   bank_officer                                    → ManagerDashboard (Bank panel)
- *   agency_officer                                  → ManagerDashboard (Agency/inspection panel)
- *   agronomist                                      → ManagerDashboard (Crop advisory panel)
- *   structure/drip/bed/plantation _contractor       → ManagerDashboard (Contractor panel)
- *   <unrecognised>                                  → AccessDenied     (never exposes admin data)
+ *   admin / owner         → AdminDashboard        (full system overview: financials, staff, regional)
+ *   office_staff          → OfficeStaffDashboard  (pipeline, DPR queue, onboarding, quick actions)
+ *   dealer                → DealerDashboard       (portfolio + farmers + commission)
+ *   farmer                → FarmerDashboard       (project tracker)
+ *   project_manager       → ManagerDashboard      (PM panel)
+ *   bank_officer          → ManagerDashboard      (Bank panel)
+ *   agency_officer        → ManagerDashboard      (Agency/inspection panel)
+ *   agronomist            → ManagerDashboard      (Crop advisory panel)
+ *   structure/drip/bed/plantation _contractor
+ *                         → ManagerDashboard      (Contractor panel)
+ *   <unrecognised>        → AccessDenied          (never exposes admin data)
  */
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { getProjectStats } from '../api/client';
-import AdminDashboard   from '../components/dashboards/AdminDashboard';
-import DealerDashboard  from '../components/dashboards/DealerDashboard';
-import FarmerDashboard  from '../components/dashboards/FarmerDashboard';
-import ManagerDashboard from '../components/dashboards/ManagerDashboard';
+import AdminDashboard        from '../components/dashboards/AdminDashboard';
+import OfficeStaffDashboard  from '../components/dashboards/OfficeStaffDashboard';
+import DealerDashboard       from '../components/dashboards/DealerDashboard';
+import FarmerDashboard       from '../components/dashboards/FarmerDashboard';
+import ManagerDashboard      from '../components/dashboards/ManagerDashboard';
 import './Dashboard.css';
 
-// Roles that use the full AdminDashboard
-const ADMIN_ROLES      = new Set(['admin', 'owner', 'office_staff']);
+// Roles that see the full Admin view (financial portfolio, all staff, regional data)
+const PURE_ADMIN_ROLES = new Set(['admin', 'owner']);
 
 // Roles that use ManagerDashboard (each gets its own panel inside)
-const MANAGER_ROLES    = new Set([
+const MANAGER_ROLES = new Set([
   'project_manager',
   'bank_officer',
   'agency_officer',
@@ -71,10 +74,11 @@ const Dashboard = () => {
 
   const props = { stats, error, user };
 
-  if (ADMIN_ROLES.has(user.role))   return <AdminDashboard   {...props} />;
-  if (user.role === 'dealer')       return <DealerDashboard  {...props} />;
-  if (user.role === 'farmer')       return <FarmerDashboard  {...props} />;
-  if (MANAGER_ROLES.has(user.role)) return <ManagerDashboard {...props} />;
+  if (PURE_ADMIN_ROLES.has(user.role))  return <AdminDashboard       {...props} />;
+  if (user.role === 'office_staff')     return <OfficeStaffDashboard  {...props} />;
+  if (user.role === 'dealer')           return <DealerDashboard       {...props} />;
+  if (user.role === 'farmer')           return <FarmerDashboard       {...props} />;
+  if (MANAGER_ROLES.has(user.role))     return <ManagerDashboard      {...props} />;
 
   // Fallback — unknown role gets an access-denied screen, NOT admin data
   return (
