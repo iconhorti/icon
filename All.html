@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AgriProject - Complete Multi-Role Workflow Demo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #1a2c3e;
+            padding: 20px;
+        }
+
+        /* Role Switcher */
+        .role-switcher {
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .role-switcher h3 {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .role-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .role-btn {
+            padding: 10px 20px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 40px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .role-btn i {
+            font-size: 16px;
+        }
+
+        .role-btn.active {
+            background: #2E7D32;
+            border-color: #2E7D32;
+            color: white;
+        }
+
+        .role-btn:hover:not(.active) {
+            border-color: #2E7D32;
+            background: #e8f5e9;
+        }
+
+        /* Workflow Indicator */
+        .workflow-indicator {
+            max-width: 1200px;
+            margin: 0 auto 20px auto;
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .workflow-stages {
+            display: flex;
+            min-width: 1200px;
+            gap: 8px;
+        }
+
+        .stage-node {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .stage-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .stage-node.completed .stage-circle {
+            background: #2E7D32;
+            color: white;
+        }
+
+        .stage-node.active .stage-circle {
+            background: #f57c00;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 124, 0, 0.4); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(245, 124, 0, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(245, 124, 0, 0); }
+        }
+
+        .stage-label {
+            font-size: 10px;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .stage-node.completed .stage-label,
+        .stage-node.active .stage-label {
+            color: #1a2c3e;
+            font-weight: 600;
+        }
+
+        /* Main Content Grid */
+        .dashboard-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        /* Cards */
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .card-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a2c3e;
+        }
+
+        .card-header i {
+            font-size: 24px;
+            color: #2E7D32;
+        }
+
+        /* Project Card */
+        .project-item {
+            padding: 12px;
+            border-radius: 12px;
+            background: #f9fafb;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .project-item:hover {
+            background: #e8f5e9;
+            transform: translateX(4px);
+        }
+
+        .project-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .project-stage {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: #e5e7eb;
+        }
+
+        .project-details {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .project-progress {
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .project-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2E7D32, #4CAF50);
+            border-radius: 2px;
+            transition: width 0.3s;
+        }
+
+        /* Task List */
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            border-radius: 6px;
+            border: 2px solid #d1d5db;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .task-checkbox.completed {
+            background: #2E7D32;
+            border-color: #2E7D32;
+            color: white;
+        }
+
+        .task-content {
+            flex: 1;
+        }
+
+        .task-title {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .task-title.completed {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+
+        .task-due {
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        /* Action Buttons */
+        .action-btn {
+            width: 100%;
+            padding: 12px;
+            background: #2E7D32;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 16px;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #1B5E20;
+            transform: translateY(-2px);
+        }
+
+        .action-btn.secondary {
+            background: #f57c00;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-left: 4px solid #2E7D32;
+            transform: translateX(400px);
+            transition: transform 0.3s;
+            z-index: 1001;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .role-buttons {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+            }
+            
+            .role-btn {
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Role Switcher -->
+    <div class="role-switcher">
+        <h3><i class="fas fa-exchange-alt"></i> Switch Role to See Different Perspectives</h3>
+        <div class="role-buttons">
+            <button class="role-btn active" data-role="owner">
+                <i class="fas fa-building"></i> Owner
+            </button>
+            <button class="role-btn" data-role="project_manager">
+                <i class="fas fa-hard-hat"></i> Project Manager
+            </button>
+            <button class="role-btn" data-role="dealer">
+                <i class="fas fa-handshake"></i> Dealer
+            </button>
+            <button class="role-btn" data-role="office_staff">
+                <i class="fas fa-file-alt"></i> Office Staff
+            </button>
+            <button class="role-btn" data-role="contractor">
+                <i class="fas fa-tools"></i> Contractor
+            </button>
+            <button class="role-btn" data-role="agronomist">
+                <i class="fas fa-leaf"></i> Agronomist
+            </button>
+            <button class="role-btn" data-role="farmer">
+                <i class="fas fa-user"></i> Farmer
+            </button>
+        </div>
+    </div>
+
+    <!-- Workflow Indicator -->
+    <div class="workflow-indicator" id="workflowIndicator">
+        <!-- Dynamic workflow stages will be rendered here -->
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid" id="dashboardGrid">
+        <!-- Dynamic content based on role -->
+    </div>
+
+    <!-- Modal for Actions -->
+    <div id="actionModal" class="modal">
+        <div class="modal-content">
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification">
+        <i class="fas fa-check-circle" style="color: #2E7D32;"></i>
+        <span id="notificationMessage"></span>
+    </div>
+
+    <script>
+        // Sample Project Data (Connected Workflow)
+        let projects = [
+            {
+                id: 1,
+                name: "Ramesh Polyhouse Project",
+                farmer: "Ramesh Kumar",
+                dealer: "Amit Sharma",
+                location: "Nandgaon, Nashik",
+                crop: "Tomato",
+                area: 500,
+                structure: "Poly House",
+                stage: "erection",
+                stageIndex: 5,
+                progress: 60,
+                tasks: [
+                    { id: 1, title: "Site visit verification", completed: true, due: "2024-01-15" },
+                    { id: 2, title: "DPR preparation", completed: true, due: "2024-01-20" },
+                    { id: 3, title: "Bank loan sanction", completed: true, due: "2024-02-01" },
+                    { id: 4, title: "GOC registration", completed: true, due: "2024-02-10" },
+                    { id: 5, title: "Structure foundation", completed: true, due: "2024-02-20" },
+                    { id: 6, title: "Structure erection", completed: false, due: "2024-03-10" },
+                    { id: 7, title: "Net fixing", completed: false, due: "2024-03-15" }
+                ],
+                siteVisits: [
+                    { date: "2024-02-15", status: "Foundation work in progress", laborers: 8 }
+                ],
+                subsidy: {
+                    gocReceived: true,
+                    claimFiled: false,
+                    inspectionDone: false,
+                    meetingHeld: false,
+                    amountReleased: false
+                }
+            },
+            {
+                id: 2,
+                name: "Suresh Floriculture Project",
+                farmer: "Suresh Patil",
+                dealer: "Sunil Patel",
+                location: "Pune",
+                crop: "Rose",
+                area: 300,
+                structure: "Poly House",
+                stage: "bank",
+                stageIndex: 3,
+                progress: 27,
+                tasks: [
+                    { id: 1, title: "Site visit verification", completed: true, due: "2024-01-25" },
+                    { id: 2, title: "DPR preparation", completed: true, due: "2024-02-01" },
+                    { id: 3, title: "Bank loan sanction", completed: false, due: "2024-02-28" }
+                ],
+                siteVisits: [],
+                subsidy: {
+                    gocReceived: false,
+                    claimFiled: false,
+                    inspectionDone: false,
+                    meetingHeld: false,
+                    amountReleased: false
+                }
+            },
+            {
+                id: 3,
+                name: "Meena Organic Farm",
+                farmer: "Meena Devi",
+                dealer: "Amit Sharma",
+                location: "Nagpur",
+                crop: "Cucumber",
+                area: 800,
+                structure: "Shade Net House",
+                stage: "completed",
+                stageIndex: 14,
+                progress: 100,
+                tasks: [
+                    { id: 1, title: "Site visit verification", completed: true, due: "2023-12-01" },
+                    { id: 2, title: "DPR preparation", completed: true, due: "2023-12-10" },
+                    { id: 3, title: "Bank loan sanction", completed: true, due: "2023-12-20" },
+                    { id: 4, title: "GOC registration", completed: true, due: "2024-01-05" },
+                    { id: 5, title: "Structure erection", completed: true, due: "2024-01-25" },
+                    { id: 6, title: "Drip installation", completed: true, due: "2024-02-05" },
+                    { id: 7, title: "Bed preparation", completed: true, due: "2024-02-10" },
+                    { id: 8, title: "Plantation", completed: true, due: "2024-02-15" },
+                    { id: 9, title: "Subsidy claim", completed: true, due: "2024-02-20" },
+                    { id: 10, title: "Subsidy released", completed: true, due: "2024-02-25" }
+                ],
+                siteVisits: [
+                    { date: "2024-01-20", status: "Structure 80% done", laborers: 12 },
+                    { date: "2024-02-10", status: "Plantation completed", laborers: 15 }
+                ],
+                subsidy: {
+                    gocReceived: true,
+                    claimFiled: true,
+                    inspectionDone: true,
+                    meetingHeld: true,
+                    amountReleased: true
+                }
+            }
+        ];
+
+        // Stage Definitions
+        const stages = [
+            { name: "Farmer Onboarding", key: "farmer_onboarding", index: 0 },
+            { name: "Dealer Verification", key: "dealer_verification", index: 1 },
+            { name: "DPR & Quotation", key: "office_dpr_quotation", index: 2 },
+            { name: "Bank Loan", key: "bank", index: 3 },
+            { name: "GOC Registration", key: "subsidy_registration_goc", index: 4 },
+            { name: "Erection", key: "erection", index: 5 },
+            { name: "Drip", key: "drip", index: 6 },
+            { name: "Bed", key: "bed", index: 7 },
+            { name: "Plantation", key: "plantation", index: 8 },
+            { name: "Other Components", key: "other_components", index: 9 },
+            { name: "Subsidy Claim", key: "subsidy_claim_nhb", index: 10 },
+            { name: "NHB Visit", key: "subsidy_visit_nhb", index: 11 },
+            { name: "NHB Meeting", key: "subsidy_meeting_nhb", index: 12 },
+            { name: "Subsidy Release", key: "subsidy_released_nhb", index: 13 },
+            { name: "Completed", key: "completed", index: 14 }
+        ];
+
+        let currentRole = "owner";
+
+        // Helper Functions
+        function showNotification(message, isSuccess = true) {
+            const notification = document.getElementById('notification');
+            const notificationMsg = document.getElementById('notificationMessage');
+            notificationMsg.innerHTML = message;
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+
+        function getStageName(stageKey) {
+            const stage = stages.find(s => s.key === stageKey);
+            return stage ? stage.name : stageKey;
+        }
+
+        function renderWorkflow(project) {
+            const container = document.getElementById('workflowIndicator');
+            const currentStageIndex = project.stageIndex;
+            
+            container.innerHTML = `
+                <div style="margin-bottom: 12px;">
+                    <strong>📊 ${project.name}</strong> - Current Progress
+                </div>
+                <div class="workflow-stages">
+                    ${stages.map((stage, idx) => `
+                        <div class="stage-node ${idx < currentStageIndex ? 'completed' : idx === currentStageIndex ? 'active' : ''}">
+                            <div class="stage-circle">
+                                ${idx < currentStageIndex ? '✓' : idx + 1}
+                            </div>
+                            <div class="stage-label">${stage.name}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // Role-Specific Content
+        function renderOwnerDashboard() {
+            const totalProjects = projects.length;
+            const activeProjects = projects.filter(p => p.stage !== 'completed').length;
+            const completedProjects = projects.filter(p => p.stage === 'completed').length;
+            const totalSubsidy = 441250 + 225000 + 600000;
+            
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 Key Metrics</h3>
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div style="display: grid; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Total Projects</span>
+                            <strong style="font-size: 24px;">${totalProjects}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Active Projects</span>
+                            <strong style="font-size: 24px; color: #f57c00;">${activeProjects}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Completed Projects</span>
+                            <strong style="font-size: 24px; color: #2E7D32;">${completedProjects}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Total Subsidy Released</span>
+                            <strong style="font-size: 24px;">₹${(totalSubsidy/100000).toFixed(1)}L</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🌾 Active Projects</h3>
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    ${projects.filter(p => p.stage !== 'completed').map(project => `
+                        <div class="project-item" onclick="viewProjectDetails(${project.id})">
+                            <div class="project-title">
+                                <span>${project.name}</span>
+                                <span class="project-stage">${getStageName(project.stage)}</span>
+                            </div>
+                            <div class="project-details">
+                                <i class="fas fa-user"></i> ${project.farmer} | 
+                                <i class="fas fa-handshake"></i> ${project.dealer}
+                            </div>
+                            <div class="project-progress">
+                                <div class="project-progress-fill" style="width: ${project.progress}%"></div>
+                            </div>
+                            <div style="font-size: 11px; margin-top: 4px;">${project.progress}% Complete</div>
+                        </div>
+                    `).join('')}
+                    <button class="action-btn" onclick="openCreateProjectModal()">
+                        <i class="fas fa-plus"></i> Create New Project
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🏆 Top Dealers</h3>
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span><i class="fas fa-star" style="color: gold;"></i> Amit Sharma</span>
+                            <span>28 projects</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span><i class="fas fa-star" style="color: gold;"></i> Sunil Patel</span>
+                            <span>22 projects</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span><i class="fas fa-star" style="color: gold;"></i> Rajesh Gupta</span>
+                            <span>19 projects</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProjectManagerDashboard() {
+            const project = projects[0]; // Focus on active project
+            
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📍 Today's Site Visits</h3>
+                        <i class="fas fa-map-marker-alt"></i>
+                    </div>
+                    <div class="project-item">
+                        <div class="project-title">
+                            <span>${project.name}</span>
+                            <span class="project-stage">Due Today</span>
+                        </div>
+                        <div class="project-details">
+                            📍 ${project.location} (2.5 km away)
+                        </div>
+                        <button class="action-btn" style="margin-top: 8px;" onclick="startSiteVisit(${project.id})">
+                            <i class="fas fa-play"></i> Start Site Visit
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🏗️ Site Details Editor</h3>
+                        <i class="fas fa-edit"></i>
+                    </div>
+                    <div class="form-group">
+                        <label>Land Area (SQM)</label>
+                        <input type="number" id="editLandArea" value="${project.area}" onchange="updateSiteDetail('area', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Latitude</label>
+                        <input type="text" id="editLatitude" value="19.9975" onchange="updateSiteDetail('lat', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Longitude</label>
+                        <input type="text" id="editLongitude" value="73.7898" onchange="updateSiteDetail('lng', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>Structure Area (SQM)</label>
+                        <input type="number" id="editStructureArea" value="${project.area}" onchange="updateSiteDetail('structureArea', this.value)">
+                    </div>
+                    <button class="action-btn secondary" onclick="saveSiteDetails()">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📋 Daily Report</h3>
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <div class="form-group">
+                        <label>Work Done Today</label>
+                        <textarea id="workDone" rows="3" placeholder="Describe work completed..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Laborers Present</label>
+                        <input type="number" id="laborCount" value="8">
+                    </div>
+                    <div class="form-group">
+                        <label>Issues Faced</label>
+                        <textarea id="issues" rows="2" placeholder="Any issues..."></textarea>
+                    </div>
+                    <button class="action-btn" onclick="submitDailyReport(${project.id})">
+                        <i class="fas fa-upload"></i> Submit Report
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderDealerDashboard() {
+            const pendingProjects = projects.filter(p => p.stage === 'farmer_onboarding' || p.stage === 'dealer_verification');
+            const myProjects = projects.filter(p => p.dealer === "Amit Sharma");
+            
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👥 Farmer Onboarding</h3>
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <button class="action-btn" onclick="openFarmerRegistration()">
+                        <i class="fas fa-plus"></i> Register New Farmer
+                    </button>
+                    <div style="margin-top: 16px;">
+                        <strong>Pending Verification: ${pendingProjects.length}</strong>
+                        ${pendingProjects.map(project => `
+                            <div class="project-item">
+                                <div class="project-title">${project.name}</div>
+                                <div class="project-details">Farmer: ${project.farmer}</div>
+                                <button class="action-btn" style="margin-top: 8px;" onclick="verifyFarmer(${project.id})">
+                                    <i class="fas fa-check"></i> Verify Site
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🚜 My Projects</h3>
+                        <i class="fas fa-tractor"></i>
+                    </div>
+                    ${myProjects.map(project => `
+                        <div class="project-item">
+                            <div class="project-title">${project.name}</div>
+                            <div class="project-details">${project.farmer} | ${getStageName(project.stage)}</div>
+                            <div class="project-progress">
+                                <div class="project-progress-fill" style="width: ${project.progress}%"></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📊 My Performance</h3>
+                        <i class="fas fa-chart-simple"></i>
+                    </div>
+                    <div style="text-align: center; padding: 20px;">
+                        <div style="font-size: 36px; font-weight: bold; color: #2E7D32;">${myProjects.length}</div>
+                        <div>Active Projects</div>
+                        <div style="margin-top: 12px; font-size: 24px; font-weight: bold;">⭐ 4.8</div>
+                        <div>Dealer Rating</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderOfficeStaffDashboard() {
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📄 Pending DPRs</h3>
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    ${projects.filter(p => p.stage === 'dealer_verification').map(project => `
+                        <div class="project-item">
+                            <div class="project-title">${project.name}</div>
+                            <div class="project-details">${project.farmer} | Area: ${project.area} SQM</div>
+                            <button class="action-btn" style="margin-top: 8px;" onclick="prepareDPR(${project.id})">
+                                <i class="fas fa-file-alt"></i> Prepare DPR
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💰 Subsidy Claims</h3>
+                        <i class="fas fa-rupee-sign"></i>
+                    </div>
+                    ${projects.filter(p => p.stage === 'plantation').map(project => `
+                        <div class="project-item">
+                            <div class="project-title">${project.name}</div>
+                            <div class="project-details">Crop: ${project.crop} | Area: ${project.area} SQM</div>
+                            <button class="action-btn" style="margin-top: 8px;" onclick="fileSubsidyClaim(${project.id})">
+                                <i class="fas fa-file-signature"></i> File Subsidy Claim
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function renderContractorDashboard() {
+            const activeTasks = projects[0].tasks.filter(t => !t.completed);
+            
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🏗️ My Tasks</h3>
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    ${activeTasks.map(task => `
+                        <div class="task-item">
+                            <div class="task-checkbox" onclick="toggleTask(${task.id})">
+                                ${task.completed ? '✓' : ''}
+                            </div>
+                            <div class="task-content">
+                                <div class="task-title ${task.completed ? 'completed' : ''}">${task.title}</div>
+                                <div class="task-due">Due: ${task.due}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                    <button class="action-btn" onclick="updateProgress()">
+                        <i class="fas fa-chart-line"></i> Update Progress
+                    </button>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📸 Upload Photos</h3>
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <div class="form-group">
+                        <label>Stage Photos</label>
+                        <input type="file" multiple accept="image/*">
+                    </div>
+                    <button class="action-btn" onclick="uploadPhotos()">
+                        <i class="fas fa-upload"></i> Upload Progress Photos
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderAgronomistDashboard() {
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🌱 Pending Consultations</h3>
+                        <i class="fas fa-leaf"></i>
+                    </div>
+                    ${projects.filter(p => p.stage === 'plantation').map(project => `
+                        <div class="project-item">
+                            <div class="project-title">${project.name}</div>
+                            <div class="project-details">Crop: ${project.crop} | Stage: ${getStageName(project.stage)}</div>
+                            <button class="action-btn" style="margin-top: 8px;" onclick="provideAdvisory(${project.id})">
+                                <i class="fas fa-comment-dots"></i> Provide Crop Advisory
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📋 Fertilizer Schedule</h3>
+                        <i class="fas fa-flask"></i>
+                    </div>
+                    <div class="project-item">
+                        <div class="project-title">Tomato Crop Recommendations</div>
+                        <div>Base: NPK 20:20:20 - 2kg</div>
+                        <div>Week 2: Urea - 1kg</div>
+                        <div>Week 4: DAP - 1.5kg</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFarmerDashboard() {
+            const myProjects = projects.filter(p => p.farmer === "Ramesh Kumar");
+            
+            return `
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🌾 My Projects</h3>
+                        <i class="fas fa-tractor"></i>
+                    </div>
+                    ${myProjects.map(project => `
+                        <div class="project-item" onclick="viewProjectDetails(${project.id})">
+                            <div class="project-title">
+                                <span>${project.name}</span>
+                                <span class="project-stage">${getStageName(project.stage)}</span>
+                            </div>
+                            <div class="project-progress">
+                                <div class="project-progress-fill" style="width: ${project.progress}%"></div>
+                            </div>
+                            <div style="font-size: 11px; margin-top: 4px;">${project.progress}% Complete</div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💰 Subsidy Status</h3>
+                        <i class="fas fa-rupee-sign"></i>
+                    </div>
+                    <div class="project-item">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span>GOC Received:</span>
+                            <span style="color: ${myProjects[0]?.subsidy?.gocReceived ? '#2E7D32' : '#f57c00'}">
+                                ${myProjects[0]?.subsidy?.gocReceived ? '✓ Yes' : 'Pending'}
+                            </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span>Claim Filed:</span>
+                            <span>${myProjects[0]?.subsidy?.claimFiled ? '✓ Filed' : 'Not Yet'}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Amount Released:</span>
+                            <span style="color: #2E7D32; font-weight: bold;">
+                                ${myProjects[0]?.subsidy?.amountReleased ? '₹2,20,625' : 'In Progress'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📞 Support</h3>
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <button class="action-btn" onclick="contactDealer()">
+                        <i class="fas fa-phone"></i> Contact Your Dealer
+                    </button>
+                    <button class="action-btn secondary" style="margin-top: 8px;" onclick="contactPM()">
+                        <i class="fas fa-user-tie"></i> Contact Project Manager
+                    </button>
+                </div>
+            `;
+        }
+
+        // Action Functions
+        function viewProjectDetails(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            showNotification(`Viewing details for ${project.name}`);
+            
+            const modal = document.getElementById('actionModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <h3>${project.name}</h3>
+                <div style="margin: 16px 0;">
+                    <p><strong>Farmer:</strong> ${project.farmer}</p>
+                    <p><strong>Dealer:</strong> ${project.dealer}</p>
+                    <p><strong>Location:</strong> ${project.location}</p>
+                    <p><strong>Crop:</strong> ${project.crop}</p>
+                    <p><strong>Area:</strong> ${project.area} SQM</p>
+                    <p><strong>Current Stage:</strong> ${getStageName(project.stage)}</p>
+                    <p><strong>Progress:</strong> ${project.progress}%</p>
+                </div>
+                <button class="action-btn" onclick="closeModal()">Close</button>
+            `;
+            modal.classList.add('active');
+        }
+
+        function startSiteVisit(projectId) {
+            showNotification(`Site visit started for project ${projectId}. Location verified!`);
+        }
+
+        function updateSiteDetail(field, value) {
+            showNotification(`${field} updated to: ${value}`);
+        }
+
+        function saveSiteDetails() {
+            showNotification("Site details saved successfully!");
+        }
+
+        function submitDailyReport(projectId) {
+            const workDone = document.getElementById('workDone')?.value;
+            showNotification(`Daily report submitted: ${workDone || 'Work completed'}`);
+        }
+
+        function openFarmerRegistration() {
+            const modal = document.getElementById('actionModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <h3>Register New Farmer</h3>
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="farmerName" placeholder="Enter farmer name">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="tel" id="farmerPhone" placeholder="10-digit mobile number">
+                </div>
+                <div class="form-group">
+                    <label>Village</label>
+                    <input type="text" id="farmerVillage" placeholder="Enter village">
+                </div>
+                <div class="form-group">
+                    <label>Aadhaar Number</label>
+                    <input type="text" id="farmerAadhaar" placeholder="12-digit Aadhaar number">
+                </div>
+                <button class="action-btn" onclick="registerFarmer()">Register Farmer</button>
+                <button class="action-btn secondary" style="margin-top: 8px;" onclick="closeModal()">Cancel</button>
+            `;
+            modal.classList.add('active');
+        }
+
+        function registerFarmer() {
+            showNotification("Farmer registered successfully! Awaiting approval.");
+            closeModal();
+        }
+
+        function verifyFarmer(projectId) {
+            showNotification(`Farmer verified! Project moved to next stage.`);
+        }
+
+        function prepareDPR(projectId) {
+            const modal = document.getElementById('actionModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <h3>Prepare DPR & Quotation</h3>
+                <div class="form-group">
+                    <label>Structure Type</label>
+                    <select>
+                        <option>Poly House (NVPH)</option>
+                        <option>Shade Net House</option>
+                        <option>Fan & Pad House</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Estimated Cost (₹)</label>
+                    <input type="number" value="882500">
+                </div>
+                <div class="form-group">
+                    <label>Subsidy Eligible (50%)</label>
+                    <input type="number" value="441250" readonly>
+                </div>
+                <button class="action-btn" onclick="saveDPR()">Generate DPR</button>
+                <button class="action-btn secondary" style="margin-top: 8px;" onclick="closeModal()">Cancel</button>
+            `;
+            modal.classList.add('active');
+        }
+
+        function saveDPR() {
+            showNotification("DPR generated successfully! Ready for bank submission.");
+            closeModal();
+        }
+
+        function fileSubsidyClaim(projectId) {
+            showNotification("Subsidy claim filed with NHB! Inspection scheduled.");
+        }
+
+        function toggleTask(taskId) {
+            showNotification("Task updated!");
+        }
+
+        function updateProgress() {
+            const modal = document.getElementById('actionModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <h3>Update Progress</h3>
+                <div class="form-group">
+                    <label>Current Progress (%)</label>
+                    <input type="range" min="0" max="100" value="60" id="progressSlider">
+                    <div id="progressValue" style="text-align: center; margin-top: 8px;">60%</div>
+                </div>
+                <div class="form-group">
+                    <label>Completion Notes</label>
+                    <textarea rows="3" placeholder="Describe work completed..."></textarea>
+                </div>
+                <button class="action-btn" onclick="saveProgress()">Update Progress</button>
+                <button class="action-btn secondary" style="margin-top: 8px;" onclick="closeModal()">Cancel</button>
+            `;
+            modal.classList.add('active');
+            
+            const slider = document.getElementById('progressSlider');
+            slider.addEventListener('input', (e) => {
+                document.getElementById('progressValue').innerText = e.target.value + '%';
+            });
+        }
+
+        function saveProgress() {
+            showNotification("Progress updated successfully!");
+            closeModal();
+        }
+
+        function uploadPhotos() {
+            showNotification("Photos uploaded successfully!");
+        }
+
+        function provideAdvisory(projectId) {
+            const modal = document.getElementById('actionModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <h3>Crop Advisory - Tomato</h3>
+                <div class="form-group">
+                    <label>Fertilizer Recommendations</label>
+                    <textarea rows="3">Apply NPK 20:20:20 at 2kg per 100 sqm</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Pest Control Measures</label>
+                    <textarea rows="3">Neem oil spray weekly</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Irrigation Schedule</label>
+                    <textarea rows="2">Drip irrigation: 30 min daily</textarea>
+                </div>
+                <button class="action-btn" onclick="saveAdvisory()">Save Advisory</button>
+                <button class="action-btn secondary" style="margin-top: 8px;" onclick="closeModal()">Cancel</button>
+            `;
+            modal.classList.add('active');
+        }
+
+        function saveAdvisory() {
+            showNotification("Crop advisory provided successfully!");
+            closeModal();
+        }
+
+        function contactDealer() {
+            showNotification("Calling your dealer Amit Sharma...");
+        }
+
+        function contactPM() {
+            showNotification("Calling Project Manager Vikram Singh...");
+        }
+
+        function openCreateProjectModal() {
+            const modal = document.getElementById('actionModal');
+            const modalContent = document.getElementById('modalContent');
+            
+            modalContent.innerHTML = `
+                <h3>Create New Project</h3>
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" placeholder="Enter project name">
+                </div>
+                <div class="form-group">
+                    <label>Farmer</label>
+                    <select>
+                        <option>Ramesh Kumar</option>
+                        <option>Suresh Patil</option>
+                        <option>Meena Devi</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Dealer</label>
+                    <select>
+                        <option>Amit Sharma</option>
+                        <option>Sunil Patel</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Structure Type</label>
+                    <select>
+                        <option>Poly House</option>
+                        <option>Shade Net House</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Area (SQM)</label>
+                    <input type="number" placeholder="500">
+                </div>
+                <button class="action-btn" onclick="createProject()">Create Project</button>
+                <button class="action-btn secondary" style="margin-top: 8px;" onclick="closeModal()">Cancel</button>
+            `;
+            modal.classList.add('active');
+        }
+
+        function createProject() {
+            showNotification("Project created successfully! Dealer notified.");
+            closeModal();
+        }
+
+        function closeModal() {
+            document.getElementById('actionModal').classList.remove('active');
+        }
+
+        // Role Switching
+        function switchRole(role) {
+            currentRole = role;
+            const container = document.getElementById('dashboardGrid');
+            const workflowContainer = document.getElementById('workflowIndicator');
+            
+            // Update active button
+            document.querySelectorAll('.role-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if(btn.dataset.role === role) btn.classList.add('active');
+            });
+            
+            // Show workflow for project manager role
+            if(role === 'project_manager') {
+                renderWorkflow(projects[0]);
+            } else {
+                workflowContainer.innerHTML = `<div style="text-align: center; color: #6b7280;">Select a project to view workflow</div>`;
+            }
+            
+            // Render appropriate dashboard
+            switch(role) {
+                case 'owner':
+                    container.innerHTML = renderOwnerDashboard();
+                    break;
+                case 'project_manager':
+                    container.innerHTML = renderProjectManagerDashboard();
+                    break;
+                case 'dealer':
+                    container.innerHTML = renderDealerDashboard();
+                    break;
+                case 'office_staff':
+                    container.innerHTML = renderOfficeStaffDashboard();
+                    break;
+                case 'contractor':
+                    container.innerHTML = renderContractorDashboard();
+                    break;
+                case 'agronomist':
+                    container.innerHTML = renderAgronomistDashboard();
+                    break;
+                case 'farmer':
+                    container.innerHTML = renderFarmerDashboard();
+                    break;
+                default:
+                    container.innerHTML = renderOwnerDashboard();
+            }
+        }
+
+        // Event Listeners
+        document.querySelectorAll('.role-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchRole(btn.dataset.role));
+        });
+
+        // Initialize with Owner view
+        switchRole('owner');
+    </script>
+</body>
+</html>

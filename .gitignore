@@ -1,0 +1,31 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.tmp
+
+# Word / Excel lock files
+~$*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node (already in web/.gitignore)
+node_modules/
+
+# Expo
+mobile/.expo/
+mobile/dist/
+
+# SQLite databases (dev only — keep backend/*.db out of repo)
+*.db
+*.db-shm
+*.db-wal
+
+# Obsidian personal vault
+.obsidian/
+
+# Superpowers brainstorm session files (large, transient)
+.superpowers/brainstorm/*/content/
+.superpowers/brainstorm/*/state/

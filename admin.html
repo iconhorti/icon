@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AgriProject Admin - Agricultural Project Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #f5f7fb;
+            color: #1a2c3e;
+        }
+
+        /* Mobile Container */
+        .mobile-container {
+            max-width: 450px;
+            margin: 0 auto;
+            background: #f5f7fb;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
+            padding-bottom: 70px;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            background: #2E7D32;
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #2E7D32 0%, #1B5E20 100%);
+            color: white;
+            padding: 20px 16px;
+            position: relative;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .logo h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .logo p {
+            font-size: 12px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        .header-icons {
+            display: flex;
+            gap: 20px;
+        }
+
+        .header-icons i {
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .welcome-section {
+            margin-top: 10px;
+        }
+
+        .welcome-section h2 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .welcome-section p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* Stats Cards */
+        .stats-container {
+            padding: 16px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: -20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+
+        .stat-icon i {
+            font-size: 20px;
+        }
+
+        .stat-card h3 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #1a2c3e;
+        }
+
+        .stat-card p {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .trend {
+            font-size: 11px;
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .trend.up { color: #10b981; }
+        .trend.down { color: #ef4444; }
+
+        /* Section Header */
+        .section-header {
+            padding: 20px 16px 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header h3 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a2c3e;
+        }
+
+        .section-header a {
+            color: #2E7D32;
+            font-size: 13px;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* Chart Container */
+        .chart-container {
+            background: white;
+            margin: 0 16px 20px 16px;
+            padding: 16px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        canvas {
+            max-height: 200px;
+        }
+
+        /* Project Cards */
+        .projects-list {
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .project-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .project-card:hover {
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .project-title h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .project-title .project-id {
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .status-badge.active { background: #e8f5e9; color: #2E7D32; }
+        .status-badge.delayed { background: #ffebee; color: #f44336; }
+        .status-badge.completed { background: #e3f2fd; color: #2196f3; }
+
+        .project-details {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 12px;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .project-details i {
+            width: 16px;
+            margin-right: 4px;
+        }
+
+        .progress-section {
+            margin-top: 12px;
+        }
+
+        .progress-bar {
+            background: #e5e7eb;
+            border-radius: 10px;
+            height: 6px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, #2E7D32, #4CAF50);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #6b7280;
+        }
+
+        /* Dealers Grid */
+        .dealers-grid {
+            padding: 0 16px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .dealer-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .dealer-avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #2E7D32, #1B5E20);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            color: white;
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .dealer-card h4 {
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .dealer-card p {
+            font-size: 11px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .dealer-stats {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            font-size: 11px;
+            margin-top: 8px;
+        }
+
+        /* Alerts Section */
+        .alerts-list {
+            padding: 0 16px;
+            margin-bottom: 20px;
+        }
+
+        .alert-item {
+            background: #fff3e0;
+            border-left: 3px solid #f57c00;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .alert-item i {
+            font-size: 18px;
+            color: #f57c00;
+        }
+
+        .alert-content {
+            flex: 1;
+        }
+
+        .alert-title {
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+
+        .alert-time {
+            font-size: 10px;
+            color: #6b7280;
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            max-width: 450px;
+            width: 100%;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 16px;
+            border-top: 1px solid #e5e7eb;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 12px;
+            transition: color 0.2s;
+        }
+
+        .nav-item i {
+            font-size: 20px;
+        }
+
+        .nav-item.active {
+            color: #2E7D32;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 24px;
+            max-width: 400px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            font-size: 20px;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: #2E7D32;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 12px;
+        }
+
+        /* Responsive */
+        @media (max-width: 450px) {
+            .stats-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+            
+            .dealers-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <span>9:41</span>
+            <span><i class="fas fa-signal"></i> <i class="fas fa-battery-full"></i></span>
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <div class="logo">
+                    <h1>🌾 AgriProject</h1>
+                    <p>Admin Dashboard</p>
+                </div>
+                <div class="header-icons">
+                    <i class="fas fa-bell"></i>
+                    <i class="fas fa-user-circle"></i>
+                </div>
+            </div>
+            <div class="welcome-section">
+                <h2>Welcome back,</h2>
+                <p>Raj Mehta • Owner, AgriCo Solutions</p>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #e8f5e9;">
+                    <i class="fas fa-tractor" style="color: #2E7D32;"></i>
+                </div>
+                <h3>156</h3>
+                <p>Total Projects</p>
+                <div class="trend up">
+                    <i class="fas fa-arrow-up"></i> +12 this month
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #fff3e0;">
+                    <i class="fas fa-chart-line" style="color: #f57c00;"></i>
+                </div>
+                <h3>42</h3>
+                <p>Active Projects</p>
+                <div class="trend down">
+                    <i class="fas fa-arrow-down"></i> -3 this week
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #e3f2fd;">
+                    <i class="fas fa-rupee-sign" style="color: #2196f3;"></i>
+                </div>
+                <h3>₹4.2 Cr</h3>
+                <p>Subsidy Released</p>
+                <div class="trend up">
+                    <i class="fas fa-arrow-up"></i> +18% YoY
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon" style="background: #fce4ec;">
+                    <i class="fas fa-users" style="color: #e91e63;"></i>
+                </div>
+                <h3>89</h3>
+                <p>Active Farmers</p>
+                <div class="trend up">
+                    <i class="fas fa-arrow-up"></i> +5 this week
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart Section -->
+        <div class="section-header">
+            <h3>Project Overview</h3>
+            <a href="#">View Details →</a>
+        </div>
+        <div class="chart-container">
+            <canvas id="projectChart"></canvas>
+        </div>
+
+        <!-- Recent Projects -->
+        <div class="section-header">
+            <h3>Recent Projects</h3>
+            <a href="#" onclick="openCreateProjectModal()">+ New Project</a>
+        </div>
+        <div class="projects-list" id="projectsList">
+            <!-- Projects will be populated here -->
+        </div>
+
+        <!-- Top Dealers -->
+        <div class="section-header">
+            <h3>Top Performing Dealers</h3>
+            <a href="#">View All →</a>
+        </div>
+        <div class="dealers-grid" id="dealersGrid">
+            <!-- Dealers will be populated here -->
+        </div>
+
+        <!-- Alerts & Notifications -->
+        <div class="section-header">
+            <h3>⚠️ Alerts & Reminders</h3>
+            <a href="#">Mark All Read</a>
+        </div>
+        <div class="alerts-list" id="alertsList">
+            <!-- Alerts will be populated here -->
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <a href="#" class="nav-item active" data-page="dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </a>
+            <a href="#" class="nav-item" data-page="projects">
+                <i class="fas fa-tasks"></i>
+                <span>Projects</span>
+            </a>
+            <a href="#" class="nav-item" data-page="dealers">
+                <i class="fas fa-handshake"></i>
+                <span>Dealers</span>
+            </a>
+            <a href="#" class="nav-item" data-page="reports">
+                <i class="fas fa-file-alt"></i>
+                <span>Reports</span>
+            </a>
+            <a href="#" class="nav-item" data-page="profile">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div id="createProjectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Project</h3>
+                <button class="close-modal" onclick="closeCreateProjectModal()">&times;</button>
+            </div>
+            <form id="createProjectForm">
+                <div class="form-group">
+                    <label>Project Name</label>
+                    <input type="text" id="projectName" placeholder="e.g., Ramesh Polyhouse Project" required>
+                </div>
+                <div class="form-group">
+                    <label>Farmer Name</label>
+                    <select id="farmerSelect" required>
+                        <option value="">Select Farmer</option>
+                        <option value="Ramesh Kumar">Ramesh Kumar - Nashik</option>
+                        <option value="Suresh Patil">Suresh Patil - Pune</option>
+                        <option value="Meena Devi">Meena Devi - Nagpur</option>
+                        <option value="Anil Sharma">Anil Sharma - Aurangabad</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Dealer Name</label>
+                    <select id="dealerSelect" required>
+                        <option value="">Select Dealer</option>
+                        <option value="Amit Sharma">Amit Sharma</option>
+                        <option value="Sunil Patel">Sunil Patel</option>
+                        <option value="Rajesh Gupta">Rajesh Gupta</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Structure Type</label>
+                    <select id="structureType" required>
+                        <option value="Poly House">Poly House (NVPH)</option>
+                        <option value="Shade Net House">Shade Net House</option>
+                        <option value="Fan & Pad House">Fan & Pad Poly House</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Area (SQM)</label>
+                    <input type="number" id="area" placeholder="e.g., 500" required>
+                </div>
+                <div class="form-group">
+                    <label>Crop Type</label>
+                    <select id="cropType" required>
+                        <option value="Tomato">Tomato</option>
+                        <option value="Capasicum">Capasicum</option>
+                        <option value="Rose">Rose</option>
+                        <option value="Orchid">Orchid</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-primary">Create Project</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Sample Data
+        const projects = [
+            {
+                id: "AGR-2024-001",
+                name: "Ramesh Polyhouse Project",
+                farmer: "Ramesh Kumar",
+                dealer: "Amit Sharma",
+                location: "Nandgaon, Nashik",
+                stage: "erection",
+                progress: 60,
+                status: "active",
+                dueDate: "2024-03-15"
+            },
+            {
+                id: "AGR-2024-002",
+                name: "Suresh Floriculture Project",
+                farmer: "Suresh Patil",
+                dealer: "Sunil Patel",
+                location: "Pune",
+                stage: "bank",
+                progress: 27,
+                status: "active",
+                dueDate: "2024-04-30"
+            },
+            {
+                id: "AGR-2024-003",
+                name: "Meena Organic Farm",
+                farmer: "Meena Devi",
+                dealer: "Amit Sharma",
+                location: "Nagpur",
+                stage: "completed",
+                progress: 100,
+                status: "completed",
+                dueDate: "2024-02-28"
+            },
+            {
+                id: "AGR-2024-004",
+                name: "Anil Net House Project",
+                farmer: "Anil Sharma",
+                dealer: "Rajesh Gupta",
+                location: "Aurangabad",
+                stage: "delayed",
+                progress: 35,
+                status: "delayed",
+                dueDate: "2024-02-15"
+            }
+        ];
+
+        const dealers = [
+            { name: "Amit Sharma", region: "Nashik", projects: 28, rating: 4.8 },
+            { name: "Sunil Patel", region: "Pune", projects: 22, rating: 4.6 },
+            { name: "Rajesh Gupta", region: "Nagpur", projects: 19, rating: 4.7 },
+            { name: "Vikas Desai", region: "Aurangabad", projects: 15, rating: 4.5 }
+        ];
+
+        const alerts = [
+            { title: "Project AGR-2024-001 is behind schedule", time: "2 hours ago", type: "warning" },
+            { title: "Subsidy inspection scheduled for tomorrow", time: "5 hours ago", type: "info" },
+            { title: "3 pending loan approvals from bank", time: "Yesterday", type: "warning" },
+            { title: "New farmer registration pending verification", time: "Yesterday", type: "info" }
+        ];
+
+        // Render Projects
+        function renderProjects() {
+            const container = document.getElementById('projectsList');
+            container.innerHTML = projects.map(project => `
+                <div class="project-card" onclick="viewProjectDetails('${project.id}')">
+                    <div class="project-header">
+                        <div class="project-title">
+                            <h4>🌾 ${project.name}</h4>
+                            <div class="project-id">${project.id}</div>
+                        </div>
+                        <div class="status-badge ${project.status}">
+                            ${project.status === 'active' ? 'In Progress' : project.status === 'completed' ? 'Completed' : 'Delayed'}
+                        </div>
+                    </div>
+                    <div class="project-details">
+                        <span><i class="fas fa-user"></i> ${project.farmer}</span>
+                        <span><i class="fas fa-handshake"></i> ${project.dealer}</span>
+                        <span><i class="fas fa-map-marker-alt"></i> ${project.location}</span>
+                    </div>
+                    <div class="progress-section">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${project.progress}%"></div>
+                        </div>
+                        <div class="progress-info">
+                            <span>Stage: ${getStageName(project.stage)}</span>
+                            <span>${project.progress}% Complete</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Dealers
+        function renderDealers() {
+            const container = document.getElementById('dealersGrid');
+            container.innerHTML = dealers.map(dealer => `
+                <div class="dealer-card">
+                    <div class="dealer-avatar">
+                        ${dealer.name.charAt(0)}
+                    </div>
+                    <h4>${dealer.name}</h4>
+                    <p>${dealer.region}</p>
+                    <div class="dealer-stats">
+                        <span>📊 ${dealer.projects} projects</span>
+                        <span>⭐ ${dealer.rating}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Alerts
+        function renderAlerts() {
+            const container = document.getElementById('alertsList');
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert-item">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <div class="alert-content">
+                        <div class="alert-title">${alert.title}</div>
+                        <div class="alert-time">${alert.time}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Helper function to get stage name
+        function getStageName(stage) {
+            const stages = {
+                'farmer_onboarding': 'Farmer Onboarding',
+                'dealer_verification': 'Dealer Verification',
+                'office_dpr_quotation': 'DPR & Quotation',
+                'bank': 'Bank Processing',
+                'subsidy_registration_goc': 'GOC Registration',
+                'erection': 'Structure Erection',
+                'drip': 'Drip Installation',
+                'bed': 'Bed Preparation',
+                'plantation': 'Plantation',
+                'other_components': 'Other Components',
+                'subsidy_claim_nhb': 'Subsidy Claim',
+                'subsidy_visit_nhb': 'NHB Visit',
+                'subsidy_meeting_nhb': 'NHB Meeting',
+                'subsidy_released_nhb': 'Subsidy Released',
+                'completed': 'Completed'
+            };
+            return stages[stage] || stage;
+        }
+
+        // Chart.js Configuration
+        const ctx = document.getElementById('projectChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [
+                    {
+                        label: 'Projects Created',
+                        data: [12, 19, 15, 25, 22, 30],
+                        borderColor: '#2E7D32',
+                        backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: 'Projects Completed',
+                        data: [5, 8, 12, 18, 20, 28],
+                        borderColor: '#2196f3',
+                        backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // Modal Functions
+        function openCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.add('active');
+        }
+
+        function closeCreateProjectModal() {
+            document.getElementById('createProjectModal').classList.remove('active');
+        }
+
+        // View Project Details
+        function viewProjectDetails(projectId) {
+            alert(`Viewing details for project: ${projectId}\n\nIn production, this would open the project details screen with complete information including:\n- Project Timeline\n- Financial Summary\n- Document Gallery\n- Site Visit Reports\n- Contractor Details\n- Subsidy Status`);
+        }
+
+        // Handle Create Project Form
+        document.getElementById('createProjectForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const projectName = document.getElementById('projectName').value;
+            alert(`Project "${projectName}" created successfully!\n\nIn production, this would:\n1. Save to database\n2. Notify assigned dealer\n3. Update dashboard\n4. Trigger stage workflow`);
+            closeCreateProjectModal();
+            this.reset();
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('createProjectModal');
+            if (event.target === modal) {
+                closeCreateProjectModal();
+            }
+        };
+
+        // Navigation
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = this.dataset.page;
+                
+                // Update active state
+                document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+                this.classList.add('active');
+                
+                // Handle page navigation
+                if (page === 'dashboard') {
+                    // Already on dashboard
+                } else {
+                    alert(`Navigating to ${page} page...\n\nIn production, this would load the ${page} module with full functionality.`);
+                }
+            });
+        });
+
+        // Initialize page
+        renderProjects();
+        renderDealers();
+        renderAlerts();
+    </script>
+</body>
+</html>
