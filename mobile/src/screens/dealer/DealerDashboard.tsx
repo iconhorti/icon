@@ -1,12 +1,31 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, RefreshControl, View, Text, StyleSheet } from 'react-native';
+import { ScrollView, RefreshControl, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useNavigation }    from '@react-navigation/native';
 import { useGetStatsQuery } from '../../store/api/dashboardApi';
-import { KpiCard }          from '../../components/shared/KpiCard';
 import { OfflineBanner }    from '../../components/shared/OfflineBanner';
 import { formatInr }        from '../../utils/format';
-import { COLORS, SPACING }  from '../../constants/theme';
+import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+
+const DEALER_STAGES = [
+  { label: 'Onboarding',       emoji: '📋', color: '#6366f1', bg: '#EEF2FF',
+    stages: ['draft', 'farmer_onboarding', 'document_collection'] },
+  { label: 'Design / DPR',     emoji: '📐', color: '#0ea5e9', bg: '#E0F2FE',
+    stages: ['site_visit', 'design_boq', 'dpr_ready'] },
+  { label: 'Bank Processing',  emoji: '🏦', color: '#1565C0', bg: '#E3F2FD',
+    stages: ['bank_processing'] },
+  { label: 'GOC Registration', emoji: '📜', color: '#f59e0b', bg: '#FFFBEB',
+    stages: ['goc_registration'] },
+  { label: 'Construction',     emoji: '🏗️', color: '#ea580c', bg: '#FFF7ED',
+    stages: ['m1_foundation','m2_structure_erection','m3_covering_material',
+             'm4_trellising','m5_drip_fitting','m6_bed_preparation','m7_plantation'] },
+  { label: 'Subsidy Processing',emoji: '💸', color: '#0ea5e9', bg: '#E0F2FE',
+    stages: ['subsidy_claim', 'agency_inspection', 'committee_meeting'] },
+  { label: 'Completed',        emoji: '✅', color: '#22c55e', bg: '#F0FDF4',
+    stages: ['subsidy_released', 'completed'] },
+];
 
 export default function DealerDashboard() {
+  const navigation = useNavigation<any>();
   const { data: stats, isError, isFetching, refetch } = useGetStatsQuery();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -16,10 +35,15 @@ export default function DealerDashboard() {
     setRefreshing(false);
   }, [refetch]);
 
-  const dm          = stats?.dealer_metrics ?? ({} as any);
-  const commission  = dm.commission   ?? { earned: 0, pending: 0, rate_pct: 0 };
-  const funnel      = dm.funnel_data  ?? [];
-  const leaderboard = dm.leaderboard  ?? [];
+  const dm          = stats?.dealer_metrics   ?? ({} as any);
+  const commission  = dm.commission            ?? { earned: 0, pending: 0, rate_pct: 0 };
+  const leaderboard = dm.leaderboard           ?? [];
+  const sb          = stats?.stage_breakdown   ?? {};
+
+  const sumStages = (stages: string[]) =>
+    stages.reduce((n, s) => n + (sb[s] ?? 0), 0);
+
+  const goToFarmers = () => navigation.navigate('Farmers', { screen: 'FarmerList' });
 
   return (
     <ScrollView
@@ -35,68 +59,124 @@ export default function DealerDashboard() {
     >
       <OfflineBanner />
       {isError && (
-        <View style={styles.errorBanner}>
-          <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
+        <View style={styles.errBox}>
+          <Text style={styles.errTxt}>Could not load data. Pull down to retry.</Text>
         </View>
       )}
-      <View style={styles.row}>
-        <KpiCard label="My Farmers" value={stats?.total_farmers  ?? 0} accentColor={COLORS.primary} emoji="👨‍🌾" />
-        <KpiCard label="Projects"   value={stats?.total_projects  ?? 0} accentColor="#1565C0"        emoji="🏗️" />
-        <KpiCard label="Completed"  value={stats?.completed       ?? 0} accentColor="#2E7D46"        emoji="✅" />
+
+      {/* ── Summary row ── */}
+      <View style={styles.topRow}>
+        <View style={styles.topCard}>
+          <Text style={styles.topEmoji}>👨‍🌾</Text>
+          <Text style={styles.topVal}>{stats?.total_farmers ?? 0}</Text>
+          <Text style={styles.topLbl}>My Farmers</Text>
+        </View>
+        <View style={styles.topCard}>
+          <Text style={styles.topEmoji}>🏗️</Text>
+          <Text style={[styles.topVal, { color: '#1565C0' }]}>{stats?.total_projects ?? 0}</Text>
+          <Text style={styles.topLbl}>Projects</Text>
+        </View>
+        <View style={styles.topCard}>
+          <Text style={styles.topEmoji}>✅</Text>
+          <Text style={[styles.topVal, { color: '#22c55e' }]}>{stats?.completed ?? 0}</Text>
+          <Text style={styles.topLbl}>Completed</Text>
+        </View>
       </View>
 
-      {/* Commission card */}
+      {/* ── Commission card ── */}
       <View style={styles.commCard}>
-        <Text style={styles.commLabel}>Commission Earned</Text>
-        <Text style={styles.commValue}>{formatInr(commission.earned)}</Text>
+        <Text style={styles.commTitle}>My Commission</Text>
+        <Text style={styles.commBig}>{formatInr(commission.earned)}</Text>
         <View style={styles.commRow}>
-          <Text style={styles.commSub}>Pending: {formatInr(commission.pending)}</Text>
-          <Text style={styles.commSub}>Rate: {commission.rate_pct}%</Text>
+          <View>
+            <Text style={styles.commLbl}>Pending</Text>
+            <Text style={[styles.commVal, { color: '#fbbf24' }]}>{formatInr(commission.pending)}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.commLbl}>Commission Rate</Text>
+            <Text style={[styles.commVal, { color: '#34d399' }]}>{commission.rate_pct}% of project cost</Text>
+          </View>
+        </View>
+        <View style={styles.commSubsidy}>
+          <Text style={styles.commSubsidyLbl}>Subsidy Portfolio</Text>
+          <Text style={styles.commSubsidyVal}>{formatInr(stats?.total_subsidy_proposed)}</Text>
         </View>
       </View>
 
-      {funnel.length > 0 && (
-        <>
-          <Text style={styles.section}>PIPELINE FUNNEL</Text>
-          {funnel.map((f: any) => (
-            <View key={f.name} style={styles.funnelRow}>
-              <Text style={styles.funnelLabel}>{f.name}</Text>
-              <Text style={[styles.funnelVal, { color: f.fill }]}>{f.value}</Text>
+      {/* ── Pipeline breakdown — tappable ── */}
+      <Text style={styles.section}>MY FARMER PIPELINE — TAP TO VIEW</Text>
+      {DEALER_STAGES.map((group) => {
+        const count = sumStages(group.stages);
+        return (
+          <TouchableOpacity
+            key={group.label}
+            style={[styles.pipeCard, { backgroundColor: group.bg, borderLeftColor: group.color }]}
+            onPress={goToFarmers}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.pipeEmoji}>{group.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.pipeLabel, { color: group.color }]}>{group.label}</Text>
+              {group.stages.length > 1 && count > 0 && (
+                <Text style={styles.pipeSub} numberOfLines={1}>
+                  {group.stages.filter(s => (sb[s] ?? 0) > 0).map(s => `${s.replace(/_/g,'·')}: ${sb[s]}`).join('  ')}
+                </Text>
+              )}
             </View>
-          ))}
-        </>
-      )}
+            <Text style={[styles.pipeCount, { color: group.color }]}>{count}</Text>
+            <Text style={styles.pipeArrow}>›</Text>
+          </TouchableOpacity>
+        );
+      })}
 
+      {/* ── Leaderboard ── */}
       {leaderboard.length > 0 && (
         <>
-          <Text style={styles.section}>LEADERBOARD</Text>
-          {leaderboard.map((d: any) => (
+          <Text style={styles.section}>DEALER LEADERBOARD</Text>
+          {leaderboard.map((d: any, idx: number) => (
             <View key={d.name} style={[styles.lbRow, d.isMe && styles.lbMe]}>
-              <Text style={[styles.lbName, d.isMe && { color: COLORS.primary, fontWeight: '800' }]}>{d.name}</Text>
+              <Text style={styles.lbRank}>#{idx + 1}</Text>
+              <Text style={[styles.lbName, d.isMe && { color: COLORS.primary, fontWeight: '800' }]}>
+                {d.name}{d.isMe ? ' (You)' : ''}
+              </Text>
               <Text style={styles.lbCount}>{d.projects} projects</Text>
             </View>
           ))}
         </>
       )}
+
+      <View style={{ height: SPACING.xl }} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  row:         { flexDirection: 'row', padding: SPACING.md, gap: 6 },
-  commCard:    { backgroundColor: COLORS.primary, margin: SPACING.md, borderRadius: 14, padding: SPACING.lg },
-  commLabel:   { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
-  commValue:   { color: '#fff', fontSize: 26, fontWeight: '800', marginVertical: 4 },
-  commRow:     { flexDirection: 'row', justifyContent: 'space-between' },
-  commSub:     { color: 'rgba(255,255,255,0.65)', fontSize: 12 },
-  section:     { fontSize: 11, fontWeight: '700', color: COLORS.subtext, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.sm },
-  funnelRow:   { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: 6, borderRadius: 10, padding: SPACING.md, elevation: 1 },
-  funnelLabel: { fontSize: 12, color: COLORS.subtext },
-  funnelVal:   { fontSize: 16, fontWeight: '800' },
-  lbRow:       { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: 6, borderRadius: 10, padding: SPACING.md, elevation: 1 },
-  lbMe:        { borderWidth: 2, borderColor: COLORS.primary },
-  lbName:      { fontSize: 13, color: COLORS.text },
-  lbCount:     { fontSize: 12, color: COLORS.subtext },
-  errorBanner: { backgroundColor: '#FFEBEE', margin: 12, borderRadius: 10, padding: 12, borderLeftWidth: 3, borderLeftColor: '#C62828' },
-  errorText:   { color: '#C62828', fontSize: 13, fontWeight: '600' },
+  errBox:         { backgroundColor: '#FFEBEE', margin: SPACING.md, borderRadius: RADIUS.md, padding: SPACING.md, borderLeftWidth: 3, borderLeftColor: '#C62828' },
+  errTxt:         { color: '#C62828', fontSize: 13, fontWeight: '600' },
+  topRow:         { flexDirection: 'row', padding: SPACING.md, gap: 8 },
+  topCard:        { flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: SPACING.md, elevation: 1, alignItems: 'center' },
+  topEmoji:       { fontSize: 20, marginBottom: 4 },
+  topVal:         { fontSize: 22, fontWeight: '800', color: COLORS.primary },
+  topLbl:         { fontSize: 10, color: COLORS.subtext, marginTop: 2, textAlign: 'center', fontWeight: '600' },
+  commCard:       { backgroundColor: COLORS.primary, marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: 14, padding: SPACING.lg },
+  commTitle:      { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 4 },
+  commBig:        { color: '#fff', fontSize: 28, fontWeight: '800', marginBottom: SPACING.sm },
+  commRow:        { flexDirection: 'row', justifyContent: 'space-between', marginBottom: SPACING.sm },
+  commLbl:        { color: 'rgba(255,255,255,0.5)', fontSize: 10 },
+  commVal:        { fontSize: 14, fontWeight: '700' },
+  commSubsidy:    { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.2)', paddingTop: SPACING.sm, flexDirection: 'row', justifyContent: 'space-between' },
+  commSubsidyLbl: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
+  commSubsidyVal: { color: '#fbbf24', fontSize: 14, fontWeight: '700' },
+  section:        { fontSize: 11, fontWeight: '800', color: COLORS.subtext, letterSpacing: 0.6, paddingHorizontal: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.sm },
+  pipeCard:       { flexDirection: 'row', alignItems: 'center', marginHorizontal: SPACING.md, marginBottom: 8, borderRadius: RADIUS.md, padding: SPACING.md, borderLeftWidth: 4, elevation: 1 },
+  pipeEmoji:      { fontSize: 22, marginRight: SPACING.sm },
+  pipeLabel:      { fontSize: 14, fontWeight: '700' },
+  pipeSub:        { fontSize: 10, color: COLORS.subtext, marginTop: 2 },
+  pipeCount:      { fontSize: 24, fontWeight: '900', marginRight: 4 },
+  pipeArrow:      { fontSize: 22, color: COLORS.subtext },
+  lbRow:          { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: 6, borderRadius: 10, padding: SPACING.md, elevation: 1, gap: SPACING.sm },
+  lbMe:           { borderWidth: 2, borderColor: COLORS.primary },
+  lbRank:         { fontSize: 14, fontWeight: '800', color: COLORS.subtext, width: 24 },
+  lbName:         { flex: 1, fontSize: 13, color: COLORS.text },
+  lbCount:        { fontSize: 12, color: COLORS.subtext },
 });
