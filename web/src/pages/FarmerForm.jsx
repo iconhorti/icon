@@ -14,12 +14,13 @@ import { useToast } from '../context/ToastContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   UserPlus, MapPin, FileText, Upload, CheckCircle, Loader2,
-  ChevronRight, ChevronLeft,
-  AlertTriangle,
+  ChevronRight, ChevronLeft, AlertTriangle,
+  Building2, Layers, Leaf,
 } from 'lucide-react';
 import {
   createUser, updateFarmer, getFarmerById,
-  createProject, getAreaTypes,
+  createProject, getAreaTypes, getComponents,
+  addProjectItem, updateProjectFields,
   uploadDocument,
 } from '../api/client';
 
@@ -106,7 +107,19 @@ const FarmerForm = () => {
     aadhaar_number: '', pan_number: '',
   });
 
-  // ── Tab 2: Document uploads ────────────────────────────────────────────────
+  // ── Tab 2: Project Details ─────────────────────────────────────────────────
+  const [proj, setProj]             = useState({
+    project_name: '', area_type_id: '', land_area: '', land_unit: 'SQM',
+    khasra_no: '', crop_category: '',
+  });
+  const [structureId, setStructureId]           = useState('');    // selected Structure component
+  const [selectedComponents, setSelectedComponents] = useState([]); // other component IDs
+  const [lookups, setLookups]       = useState({ areaTypes: [], structures: [], others: [] });
+  const [projSaving, setProjSaving] = useState(false);
+  const [projError, setProjError]   = useState('');
+  const [projSaved, setProjSaved]   = useState(false);
+
+  // ── Tab 3: Document uploads ────────────────────────────────────────────────
   // docStatus[docType] = 'idle' | 'uploading' | 'done' | 'error'
   const [docStatus, setDocStatus]   = useState({});
   const [docFiles,  setDocFiles]    = useState({});   // docType → File
@@ -139,6 +152,27 @@ const FarmerForm = () => {
     };
     load();
   }, [id, isEdit]);
+
+  // ── Load lookups for Project tab ──────────────────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [areaTypes, comps] = await Promise.all([getAreaTypes(), getComponents()]);
+        setLookups({
+          areaTypes,
+          structures: (comps || []).filter(c => c.component_type === 'Structure'),
+          others:     (comps || []).filter(c => c.component_type !== 'Structure'),
+        });
+      } catch { /* non-critical — project tab still works, just no dropdowns */ }
+    };
+    load();
+  }, []);
+
+  // ── Auto-fill project name when farmer name changes ────────────────────────
+  useEffect(() => {
+    const name = `${kyc.first_name} ${kyc.last_name || ''}`.trim();
+    if (name) setProj(prev => ({ ...prev, project_name: `${name} — Greenhouse` }));
+  }, [kyc.first_name, kyc.last_name]);
 
   // ── Warn before unload if form is dirty ───────────────────────────────────
   useEffect(() => {
@@ -229,7 +263,7 @@ const FarmerForm = () => {
       });
       setProjectId(proj.id);
       setIsDirty(false);
-      setTab('documents');
+      setTab('project');   // go to Project Details before Documents
     } catch (err) {
       setKycError(err.response?.data?.detail || err.message || 'Registration failed.');
     } finally {
@@ -237,7 +271,63 @@ const FarmerForm = () => {
     }
   };
 
-  // ── Tab 2: document upload helpers ────────────────────────────────────────
+  // ── Tab 2: Project Details submit ─────────────────────────────────────────
+  const handleProjectSubmit = async (e) => {
+    e.preventDefault();
+    setProjError('');
+    if (!proj.area_type_id) { setProjError('Please select an Area Type.'); return; }
+    if (!proj.land_area || parseFloat(proj.land_area) <= 0) { setProjError('Please enter a valid Land Area.'); return; }
+    setProjSaving(true);
+    try {
+      // Update the project (created in Tab 1) with real structural details
+      await updateProjectFields(projectId, {
+        project_name:  proj.project_name || `${kyc.first_name} — Greenhouse`,
+        area_type_id:  parseInt(proj.area_type_id),
+        land_area:     parseFloat(proj.land_area),
+        land_unit:     proj.land_unit,
+        khasra_no:     proj.khasra_no    || null,
+        crop_category: proj.crop_category || null,
+      });
+
+      // Add Structure component as the primary project item
+      if (structureId) {
+        try {
+          await addProjectItem(projectId, {
+            component_id: parseInt(structureId),
+            quantity: parseFloat(proj.land_area),
+            unit:     proj.land_unit,
+          });
+        } catch { /* non-critical — can be added from Project Detail later */ }
+      }
+
+      // Add other selected components (Drip, Bed, Plantation, etc.)
+      for (const compId of selectedComponents) {
+        try {
+          await addProjectItem(projectId, {
+            component_id: compId,
+            quantity: parseFloat(proj.land_area),
+            unit:     proj.land_unit,
+          });
+        } catch { /* non-critical */ }
+      }
+
+      setProjSaved(true);
+      setTab('documents');
+    } catch (err) {
+      setProjError(err.response?.data?.detail || 'Failed to save project details. Please try again.');
+    } finally {
+      setProjSaving(false);
+    }
+  };
+
+  // ── Component checkbox toggle ──────────────────────────────────────────────
+  const toggleComponent = (id) => {
+    setSelectedComponents(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
+  };
+
+  // ── Tab 3: document upload helpers ────────────────────────────────────────
   const triggerFileInput = (docType) => {
     fileInputRefs.current[docType]?.click();
   };
@@ -277,17 +367,20 @@ const FarmerForm = () => {
   const tabs = isEdit
     ? [{ id: 'kyc', label: '1. KYC Details', icon: UserPlus }]
     : [
-        { id: 'kyc',       label: '1. KYC Details',   icon: UserPlus },
-        { id: 'documents', label: '2. KYC Documents',  icon: FileText },
+        { id: 'kyc',       label: '1. KYC Details',     icon: UserPlus  },
+        { id: 'project',   label: '2. Project Details',  icon: Building2 },
+        { id: 'documents', label: '3. KYC Documents',    icon: FileText  },
       ];
 
   const tabUnlocked = {
     kyc:       true,
+    project:   Boolean(farmerId && projectId),
     documents: Boolean(farmerId && projectId),
   };
 
   const tabDone = {
     kyc:       Boolean(farmerId),
+    project:   projSaved,
     documents: uploadedCount > 0,
   };
 
@@ -303,7 +396,7 @@ const FarmerForm = () => {
           <p className="page-subtitle">
             {isEdit
               ? 'Update KYC details'
-              : 'Onboard a farmer — KYC Details · KYC Documents'}
+              : 'Onboard a farmer — KYC Details · Project Details · KYC Documents'}
           </p>
         </div>
       </div>
@@ -476,7 +569,221 @@ const FarmerForm = () => {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          TAB 2 — KYC DOCUMENTS
+          TAB 2 — PROJECT DETAILS
+      ══════════════════════════════════════════════════════════════════ */}
+      {tab === 'project' && (
+        <form onSubmit={handleProjectSubmit} className="animate-fade-in">
+          {projError && (
+            <div className="error-banner" style={{ marginBottom: '1rem' }}>
+              <AlertTriangle size={16} /> {projError}
+            </div>
+          )}
+
+          {/* ── Project Info ── */}
+          <div className="glass-card detail-card" style={{ marginBottom: '1rem' }}>
+            <div className="card-header">
+              <h3 className="card-title"><Building2 size={18} /> 1. Project Information</h3>
+            </div>
+            <div className="card-body">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                <div className="input-group" style={{ gridColumn: '1 / -1' }}>
+                  <label className="input-label">Project Name</label>
+                  <input
+                    className="input-field"
+                    value={proj.project_name}
+                    onChange={e => setProj(p => ({ ...p, project_name: e.target.value }))}
+                    placeholder="e.g. Ramesh Patil — Greenhouse"
+                  />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Crop Category</label>
+                  <input
+                    className="input-field"
+                    value={proj.crop_category}
+                    onChange={e => setProj(p => ({ ...p, crop_category: e.target.value }))}
+                    placeholder="e.g. Tomato, Capsicum, Cucumber"
+                  />
+                </div>
+                <div className="input-group">
+                  <label className="input-label">Khasra / Survey No.</label>
+                  <input
+                    className="input-field"
+                    value={proj.khasra_no}
+                    onChange={e => setProj(p => ({ ...p, khasra_no: e.target.value }))}
+                    placeholder="e.g. 123/4A"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Land & Structure ── */}
+          <div className="glass-card detail-card" style={{ marginBottom: '1rem' }}>
+            <div className="card-header">
+              <h3 className="card-title"><Layers size={18} /> 2. Land & Structure</h3>
+            </div>
+            <div className="card-body">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+
+                <div className="input-group">
+                  <label className="input-label">Area Type *</label>
+                  <select
+                    className="input-field"
+                    value={proj.area_type_id}
+                    onChange={e => setProj(p => ({ ...p, area_type_id: e.target.value }))}
+                    required
+                  >
+                    <option value="">— Select area type —</option>
+                    {lookups.areaTypes.map(at => (
+                      <option key={at.id} value={at.id}>
+                        {at.name} {at.multiplier ? `(×${at.multiplier})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Land Area *</label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      className="input-field"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="e.g. 4000"
+                      value={proj.land_area}
+                      onChange={e => setProj(p => ({ ...p, land_area: e.target.value }))}
+                      required
+                      style={{ flex: 2 }}
+                    />
+                    <select
+                      className="input-field"
+                      value={proj.land_unit}
+                      onChange={e => setProj(p => ({ ...p, land_unit: e.target.value }))}
+                      style={{ flex: 1 }}
+                    >
+                      <option value="SQM">SQM</option>
+                      <option value="Acre">Acre</option>
+                      <option value="Hectare">Hectare</option>
+                      <option value="Guntha">Guntha</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <label className="input-label">Structure Type</label>
+                  <select
+                    className="input-field"
+                    value={structureId}
+                    onChange={e => setStructureId(e.target.value)}
+                  >
+                    <option value="">— Select structure —</option>
+                    {lookups.structures.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                        {s.subsidy_rate_per_unit ? ` — ₹${s.subsidy_rate_per_unit.toLocaleString('en-IN')}/unit` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.3rem' }}>
+                    The main structure type for subsidy calculation
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Components ── */}
+          {lookups.others.length > 0 && (
+            <div className="glass-card detail-card" style={{ marginBottom: '1.5rem' }}>
+              <div className="card-header">
+                <h3 className="card-title"><Leaf size={18} /> 3. Project Components</h3>
+                <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                  Select all components included in this project
+                </span>
+              </div>
+              <div className="card-body">
+                {/* Group components by type */}
+                {['Drip', 'Bed', 'Plantation', 'Other'].map(group => {
+                  const items = lookups.others.filter(c =>
+                    group === 'Other'
+                      ? !['Drip','Bed','Plantation'].includes(c.component_type)
+                      : c.component_type === group
+                  );
+                  if (!items.length) return null;
+                  return (
+                    <div key={group} style={{ marginBottom: '1rem' }}>
+                      <p style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+                        {group} Components
+                      </p>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.5rem' }}>
+                        {items.map(comp => {
+                          const checked = selectedComponents.includes(comp.id);
+                          return (
+                            <label
+                              key={comp.id}
+                              style={{
+                                display: 'flex', alignItems: 'flex-start', gap: '0.625rem',
+                                padding: '0.75rem 1rem', borderRadius: 10, cursor: 'pointer',
+                                border: `1.5px solid ${checked ? 'var(--color-primary)' : 'var(--glass-border)'}`,
+                                background: checked ? 'rgba(26,71,42,0.05)' : 'var(--color-bg-card)',
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => toggleComponent(comp.id)}
+                                style={{ marginTop: 2, accentColor: 'var(--color-primary)', flexShrink: 0 }}
+                              />
+                              <div>
+                                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text-main)', margin: 0 }}>
+                                  {comp.name}
+                                </p>
+                                {comp.subsidy_rate_per_unit > 0 && (
+                                  <p style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', margin: 0 }}>
+                                    ₹{comp.subsidy_rate_per_unit.toLocaleString('en-IN')} / unit
+                                  </p>
+                                )}
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Actions ── */}
+          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center' }}>
+            <button type="button" className="btn btn-outline" onClick={() => setTab('kyc')} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <ChevronLeft size={16} /> Back
+            </button>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setTab('documents')}
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                Skip — fill in later
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={projSaving} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {projSaving
+                  ? <><Loader2 size={16} className="spin" /> Saving…</>
+                  : <>Save & Continue <ChevronRight size={16} /></>
+                }
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          TAB 3 — KYC DOCUMENTS
       ══════════════════════════════════════════════════════════════════ */}
       {tab === 'documents' && (
         <div className="animate-fade-in">
