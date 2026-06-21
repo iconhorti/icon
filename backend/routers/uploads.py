@@ -236,6 +236,8 @@ def assert_document_delete_access(doc: models.ProjectDocument, current_user: mod
 def get_document_types(
     category:    Optional[str] = None,
     role_filter: Optional[str] = None,
+    stage:       Optional[str] = None,
+    required:    Optional[bool] = None,
     db: Session = Depends(get_db),
     current_user: models.Person = Depends(get_current_user),
 ):
@@ -243,8 +245,16 @@ def get_document_types(
     Return document types from the master table, grouped by category.
     - category: filter to a single category (KYC, Land, Bank, Project, Agency, Completion, Other)
     - role_filter: show only types this role may upload (defaults to caller's role)
+    - stage + required=true: return the documents REQUIRED to complete `stage`
+      (used by the web required-document gate). Returns { document_types: [...] }.
     Falls back to the hardcoded DOCUMENT_TYPES list if the master table is empty.
     """
+    # ── Stage-gate query: which documents are required to leave this stage? ──
+    if stage and required:
+        from constants.stages import STAGE_REQUIRED_DOCS
+        names = STAGE_REQUIRED_DOCS.get(stage, [])
+        return {"document_types": names, "stage": stage, "required": True}
+
     effective_role = role_filter or current_user.role
 
     query = db.query(models.DocumentType).filter(models.DocumentType.is_active == 1)

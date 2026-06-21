@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { useReviewDocumentMutation } from '../../store/api/documentsApi';
+import { isConflict, CONFLICT_MESSAGE } from '../../utils/concurrency';
 import { COLORS, SPACING, RADIUS }    from '../../constants/theme';
 import type { NavigationProp, RouteProp } from '@react-navigation/native';
 import type { OfficeStackParamList }      from '../../navigation/types';
@@ -25,8 +26,12 @@ export default function KycReviewScreen({
     try {
       await reviewDoc({ id: docId, status, note: note.trim() || undefined }).unwrap();
       Alert.alert('Done', `Document ${status}.`, [{ text: 'OK', onPress: () => navigation.goBack() }]);
-    } catch {
-      Alert.alert('Error', 'Could not save review. Check your connection.');
+    } catch (err) {
+      if (isConflict(err)) {
+        Alert.alert('Changed elsewhere', CONFLICT_MESSAGE, [{ text: 'OK', onPress: () => navigation.goBack() }]);
+      } else {
+        Alert.alert('Error', 'Could not save review. Check your connection.');
+      }
     }
   };
 

@@ -3,6 +3,7 @@ import { ScrollView, View, Text, TouchableOpacity, Alert, RefreshControl, StyleS
 import { useGetMilestonesQuery, useUpdateMilestoneMutation } from '../../store/api/erectionApi';
 import { EmptyState }    from '../../components/shared/EmptyState';
 import { OfflineBanner } from '../../components/shared/OfflineBanner';
+import { versionOf, isConflict, CONFLICT_MESSAGE } from '../../utils/concurrency';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import type { RouteProp } from '@react-navigation/native';
 
@@ -33,9 +34,18 @@ export default function MilestoneTrackerScreen({ route }: { route: RouteProp<any
   const firstActiveIdx = display.findIndex(m => !m.signed_off && m.status !== 'completed');
 
   const handleSignOff = (key: string) => {
+    const current = milestones.find(m => m.key === key); // carries the concurrency token
     Alert.alert(`Sign Off ${MILESTONE_LABELS[key]}?`, 'This action will be logged.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Off', onPress: async () => { await updateMilestone({ project_id: projectId, milestone_key: key, progress_pct: 100, description: 'Signed off via mobile' }); } },
+      { text: 'Sign Off', onPress: async () => {
+          try {
+            await updateMilestone({ project_id: projectId, milestone_key: key, progress_pct: 100, description: 'Signed off via mobile', ...versionOf(current) }).unwrap();
+          } catch (err) {
+            if (isConflict(err)) { Alert.alert('Changed elsewhere', CONFLICT_MESSAGE); refetch(); }
+            else Alert.alert('Failed', 'Could not sign off. Please try again.');
+          }
+        },
+      },
     ]);
   };
 

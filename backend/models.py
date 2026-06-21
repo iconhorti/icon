@@ -385,8 +385,8 @@ class Project(Base):
     company_id          = Column(Integer, ForeignKey("companies.id"), nullable=False)
     created_by          = Column(Integer, ForeignKey("person.id"), nullable=False)
     project_manager_id  = Column(Integer, ForeignKey("person.id"))
-    farmer_id           = Column(Integer, ForeignKey("person.id"), nullable=False)
-    dealer_id           = Column(Integer, ForeignKey("person.id"))
+    farmer_id           = Column(Integer, ForeignKey("person.id"), nullable=False, index=True)
+    dealer_id           = Column(Integer, ForeignKey("person.id"), index=True)
     bank_branch_id      = Column(Integer, ForeignKey("bank_branches.id"))
     area_type_id        = Column(Integer, ForeignKey("project_area_types.id"), nullable=False)
     subsidy_agency_id   = Column(Integer, ForeignKey("government_agencies.id"))
@@ -426,6 +426,7 @@ class Project(Base):
 
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
+    version    = Column(Integer, default=1)   # optimistic-concurrency token
 
     # Relationships
     company         = relationship("Company", back_populates="projects")
@@ -622,6 +623,8 @@ class ProjectMilestone(Base):
     remarks          = Column(Text)
     updated_by       = Column(Integer, ForeignKey("person.id"))
     created_at       = Column(DateTime, default=func.now())
+    updated_at       = Column(DateTime, onupdate=func.now())
+    version          = Column(Integer, default=1)   # optimistic-concurrency token
 
     project           = relationship("Project", back_populates="milestones")
     updated_by_person = relationship("Person")
@@ -696,7 +699,7 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id                  = Column(Integer, primary_key=True, autoincrement=True)
-    user_id             = Column(Integer, ForeignKey("person.id"), nullable=False)
+    user_id             = Column(Integer, ForeignKey("person.id"), nullable=False, index=True)
     title               = Column(String(200), nullable=False)
     message             = Column(Text, nullable=False)
     type                = Column(String(50))   # stage_change / task_assigned / document_required / etc.
@@ -729,3 +732,41 @@ class DocumentType(Base):
     is_active     = Column(Integer, default=1)
     sort_order    = Column(Integer, default=0)
     created_at    = Column(DateTime, default=func.now())
+
+
+# =============================================================================
+# 11. ACTIVITY LOG (AUDIT TRAIL) & DEVICE TOKENS
+# =============================================================================
+
+class ProjectActivity(Base):
+    """
+    Append-only audit trail for a project. One row per meaningful action
+    (stage change, field update, document review, …). Read by the web
+    ActivityTimeline and any compliance export.
+    """
+    __tablename__ = "project_activity"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    project_id  = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_id    = Column(Integer, ForeignKey("person.id"))
+    actor_name  = Column(String(200))
+    actor_role  = Column(String(50))
+    action      = Column(String(200), nullable=False)
+    from_stage  = Column(String(50))
+    to_stage    = Column(String(50))
+    note        = Column(Text)
+    created_at  = Column(DateTime, default=func.now(), index=True)
+
+    actor = relationship("Person")
+
+
+class DeviceToken(Base):
+    """Expo/FCM push tokens registered per user+device for push notifications."""
+    __tablename__ = "device_tokens"
+
+    id          = Column(Integer, primary_key=True, autoincrement=True)
+    user_id     = Column(Integer, ForeignKey("person.id", ondelete="CASCADE"), nullable=False, index=True)
+    token       = Column(String(255), unique=True, nullable=False)
+    platform    = Column(String(20))   # ios | android | web
+    created_at  = Column(DateTime, default=func.now())
+    updated_at  = Column(DateTime, onupdate=func.now())

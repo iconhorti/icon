@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from database import get_db
-from auth_dep import get_current_user, require_roles, ADMIN_ROLES
+from auth_dep import get_current_user, require_roles, ADMIN_ROLES, assert_project_access
 import models, schemas
 
 router = APIRouter(prefix="/site-visits", tags=["Field Operations"])
@@ -52,7 +52,6 @@ def get_project_visits(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
 
-    from auth_dep import assert_project_access
     assert_project_access(project, current_user, db)
 
     return db.query(models.SiteVisit).filter(
@@ -75,6 +74,10 @@ def get_site_visit(
     visit = db.query(models.SiteVisit).filter(models.SiteVisit.id == visit_id).first()
     if not visit:
         raise HTTPException(status_code=404, detail="Site visit not found.")
+
+    project = db.query(models.Project).filter(models.Project.id == visit.project_id).first()
+    if project:
+        assert_project_access(project, current_user, db)
     return visit
 
 
@@ -93,6 +96,7 @@ def log_site_visit(
     project = db.query(models.Project).filter(models.Project.id == visit.project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found.")
+    assert_project_access(project, current_user, db)
 
     new_visit = models.SiteVisit(**visit.model_dump())
     db.add(new_visit)

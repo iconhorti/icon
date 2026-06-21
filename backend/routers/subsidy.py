@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from auth_dep import get_current_user
+from auth_dep import get_current_user, assert_project_access
 import models, schemas
 from typing import List
 
 router = APIRouter(prefix="/subsidy", tags=["Subsidy Calculation"])
-
 
 @router.get("/agencies", response_model=List[schemas.GovernmentAgencyResponse])
 def get_agencies(
@@ -60,7 +59,7 @@ def get_rates(
                 "unit_type":      c.unit_type,
                 "cost":           c.eligible_cost_per_unit,
                 "subsidy":        c.subsidy_rate_per_unit,
-                "max_quantity":   c.max_quantity,
+                "max_quantity":   c.max_qty,
             }
             for c in components if c.component_type == "Component"
         ],
@@ -76,7 +75,11 @@ def get_rates(
 
 
 @router.get("/calculate/{project_id}")
-def calculate_subsidy(project_id: int, db: Session = Depends(get_db)):
+def calculate_subsidy(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+):
     """
     Full Spec v2.0 subsidy calculation using ProjectItem records.
     Iterates project.items (line_type: Structure | Crop | Component)
@@ -90,6 +93,9 @@ def calculate_subsidy(project_id: int, db: Session = Depends(get_db)):
     project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Financial data — only people with legitimate access to this project may see it.
+    assert_project_access(project, current_user, db)
 
     area_multiplier = project.area_type.multiplier if project.area_type else 1.0
 

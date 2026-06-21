@@ -13,6 +13,53 @@ import models
 # 1. Initialize the Database (Creates all tables from models.py if they don't exist)
 Base.metadata.create_all(bind=engine)
 
+
+# 1a. Lightweight idempotent column migrations. create_all() creates NEW tables
+#     but never ALTERs existing ones, so columns added to pre-existing tables are
+#     applied here (safe to run on every startup).
+def _run_migrations():
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+
+    def add_column_if_missing(table: str, column: str, ddl_type: str, default_sql: str = ""):
+        try:
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            if column in existing:
+                return
+            default_clause = f" DEFAULT {default_sql}" if default_sql else ""
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}{default_clause}"))
+        except Exception:
+            # Table may not exist yet, or the engine disallows it — non-fatal.
+            pass
+
+    def add_index_if_missing(table: str, column: str):
+        try:
+            existing_idx_cols = set()
+            for idx in inspector.get_indexes(table):
+                existing_idx_cols.update(idx.get("column_names", []))
+            if column in existing_idx_cols:
+                return
+            index_name = f"ix_{table}_{column}"
+            with engine.begin() as conn:
+                conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({column})"))
+        except Exception:
+            pass
+
+    # Optimistic-concurrency tokens
+    add_column_if_missing("projects", "version", "INTEGER", "1")
+    add_column_if_missing("project_milestones", "version", "INTEGER", "1")
+    add_column_if_missing("project_milestones", "updated_at", "DATETIME")
+
+    # Query-pattern indexes — these tables are queried by these columns constantly
+    # (project ownership checks, per-user notification lists) but predate the
+    # index=True now declared on the model columns.
+    add_index_if_missing("projects", "farmer_id")
+    add_index_if_missing("projects", "dealer_id")
+    add_index_if_missing("notifications", "user_id")
+
+_run_migrations()
+
 # 1b. Seed document_types master table if empty
 def _seed_document_types():
     """Insert default document type rows on first run (idempotent)."""
@@ -136,6 +183,9 @@ app.include_router(dashboard.router, prefix=api_prefix)
 
 from routers import lookups
 app.include_router(lookups.router, prefix=api_prefix)
+
+from routers import devices
+app.include_router(devices.router, prefix=api_prefix)
 
 # 5. Root Endpoint (Health Check)
 @app.get("/")

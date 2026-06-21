@@ -127,6 +127,7 @@ def get_current_user(
 
 
 def get_current_user_optional(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> Optional[models.Person]:
@@ -134,7 +135,7 @@ def get_current_user_optional(
     if not credentials:
         return None
     try:
-        return get_current_user(credentials, db)
+        return get_current_user(request, credentials, db)
     except HTTPException:
         return None
 

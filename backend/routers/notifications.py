@@ -11,15 +11,74 @@ Permissions:
   DELETE /{id}        → admin, owner only
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
+import json
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
-from database import get_db
-from auth_dep import get_current_user, require_roles, ADMIN_ROLES
+from database import get_db, SessionLocal
+from auth_dep import get_current_user, require_roles, ADMIN_ROLES, decode_token
 import models, schemas
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+
+
+# ─── SSE STREAM ────────────────────────────────────────────────────────────────
+# Real-time push for the web app (mobile uses native push). EventSource can't set
+# an Authorization header, so the JWT comes via ?token=. Emits a `notification`
+# event whenever the user's unread set changes; the client refetches on it.
+@router.get("/stream")
+async def notifications_stream(request: Request, token: str = ""):
+    if not token:
+        raise HTTPException(status_code=401, detail="Missing token")
+    payload = decode_token(token)            # raises 401 if invalid/expired
+    user_id = payload.get("sub")
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user_id = int(user_id)
+
+    async def event_gen():
+        last_max_id = -1
+        # initial comment so the connection opens promptly
+        yield ": connected\n\n"
+        while True:
+            if await request.is_disconnected():
+                break
+            db = SessionLocal()
+            try:
+                row = (
+                    db.query(models.Notification.id)
+                    .filter(models.Notification.user_id == user_id)
+                    .order_by(models.Notification.id.desc())
+                    .first()
+                )
+                max_id = row[0] if row else 0
+                unread = (
+                    db.query(models.Notification)
+                    .filter(models.Notification.user_id == user_id, models.Notification.is_read == 0)
+                    .count()
+                )
+            finally:
+                db.close()
+
+            if max_id != last_max_id:
+                # Skip emitting on the very first poll (last_max_id == -1) only if
+                # there's nothing new to report beyond the baseline.
+                if last_max_id != -1:
+                    yield f"event: notification\ndata: {json.dumps({'unread': unread, 'latest_id': max_id})}\n\n"
+                last_max_id = max_id
+            else:
+                yield ": ping\n\n"   # heartbeat keeps proxies from closing the connection
+
+            await asyncio.sleep(15)
+
+    return StreamingResponse(
+        event_gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 # ─── Create schema ─────────────────────────────────────────────────────────────

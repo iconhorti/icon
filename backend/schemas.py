@@ -349,12 +349,14 @@ class ProjectBase(BaseModel):
     expected_end_date: Optional[date] = None
     actual_start_date: Optional[date] = None
     actual_end_date: Optional[date] = None
-    
+
 class ProjectCreate(ProjectBase):
-    pass
+    # Optimistic-concurrency token echoed back by the client on update (ignored on create).
+    version: Optional[int] = None
 
 class ProjectResponse(ProjectBase):
     id: int
+    version: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     

@@ -21,6 +21,8 @@ from auth_dep import (
     get_current_user, require_roles, is_admin,
     assert_project_access, ADMIN_ROLES, STAFF_ROLES, CONTRACTOR_ROLES,
 )
+from activity import log_activity
+from constants.stages import STAGE_REQUIRED_DOCS
 import models, schemas
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -170,6 +172,12 @@ def update_project_stage(
     """
     ALLOWED_ROLES = ADMIN_ROLES | {"office_staff", "project_manager"}
 
+    if stage_name not in models.VALID_STAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"'{stage_name}' is not a valid project stage. Valid stages: {models.VALID_STAGES}",
+        )
+
     if current_user.role in CONTRACTOR_ROLES:
         allowed_stages = CONTRACTOR_STAGE_MAP.get(current_user.role, set())
         if stage_name not in allowed_stages:
@@ -187,7 +195,27 @@ def update_project_stage(
     assert_project_access(project, current_user, db)
 
     old_stage = project.project_stage
+
+    # ── Required-document gate — block leaving a stage that still has missing
+    # mandatory documents. Admin/owner can override (e.g. fixing data manually).
+    if stage_name != old_stage and current_user.role not in ADMIN_ROLES:
+        required_docs = STAGE_REQUIRED_DOCS.get(old_stage, [])
+        if required_docs:
+            uploaded_types = {
+                d.document_type for d in
+                db.query(models.ProjectDocument.document_type)
+                .filter(models.ProjectDocument.project_id == project_id)
+                .all()
+            }
+            missing = [d for d in required_docs if d not in uploaded_types]
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Cannot leave stage '{old_stage}' — missing required documents: {missing}",
+                )
+
     project.project_stage = stage_name
+    project.version = (project.version or 1) + 1
 
     log = models.ProjectMilestone(
         project_id=project_id,
@@ -197,8 +225,49 @@ def update_project_stage(
         completion_date=func.now()
     )
     db.add(log)
+    # Audit trail — surfaced by the web ActivityTimeline.
+    log_activity(
+        db, project_id, current_user,
+        action="advanced the stage" if stage_name != old_stage else "updated the stage",
+        from_stage=old_stage, to_stage=stage_name,
+    )
     db.commit()
     return {"message": f"Stage updated: {old_stage} → {stage_name}"}
+
+
+@router.get("/{project_id}/activity")
+def get_project_activity(
+    project_id: int,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+):
+    """Audit trail for a project — most recent first. Consumed by the web ActivityTimeline."""
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    assert_project_access(project, current_user, db)
+
+    rows = (
+        db.query(models.ProjectActivity)
+        .filter(models.ProjectActivity.project_id == project_id)
+        .order_by(models.ProjectActivity.created_at.desc())
+        .limit(min(limit, 500))
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "actor_name": r.actor_name,
+            "actor_role": r.actor_role,
+            "action": r.action,
+            "from_stage": r.from_stage,
+            "to_stage": r.to_stage,
+            "note": r.note,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in rows
+    ]
 
 
 @router.put("/{project_id}", response_model=schemas.ProjectResponse)
@@ -226,9 +295,22 @@ def update_project(
     assert_project_access(project, current_user, db)
 
     update_data = updates.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(project, key, value)
 
+    # ── Optimistic concurrency — reject a stale write (lost-update guard) ──
+    client_version = update_data.pop("version", None)
+    update_data.pop("updated_at", None)
+    if client_version is not None and project.version is not None and int(client_version) != int(project.version):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This project was changed by someone else since you opened it. Reload and try again.",
+        )
+
+    for key, value in update_data.items():
+        if hasattr(project, key):
+            setattr(project, key, value)
+
+    project.version = (project.version or 1) + 1
+    log_activity(db, project_id, current_user, action="updated project details")
     db.commit()
     db.refresh(project)
     return project
@@ -338,36 +420,50 @@ def update_project_fields(
 
     assert_project_access(project, current_user, db)
 
-    # Role-scoped field whitelists
+    # Role-scoped field whitelists.
+    # NOTE: bank_officer / agency_officer / agronomist have no fields here by
+    # design — bank/subsidy/agronomy data lives on BankBranch, ProjectMilestone,
+    # and AgronomistConsultation respectively, not on Project itself. Previously
+    # this whitelist listed Project columns that don't exist (e.g.
+    # "agronomist_recommendations"), which silently no-op'd via the
+    # hasattr() guard below — removed rather than left as misleading dead config.
+    # If those roles need to PATCH project-level fields in the future, add real
+    # columns first, then list them here.
     ADMIN_FIELDS = {
         "total_project_cost", "total_eligible_cost", "priority", "remarks",
         "project_manager_id",
     }
-    BANK_FIELDS = set()
-    GOC_FIELDS = set()
     CONSTRUCTION_FIELDS = {
         "actual_start_date", "actual_end_date"
     }
-    SUBSIDY_FIELDS = set()
 
     role = current_user.role
     if role in ADMIN_ROLES | {"office_staff", "project_manager"}:
-        ALLOWED_FIELDS = ADMIN_FIELDS | BANK_FIELDS | GOC_FIELDS | CONSTRUCTION_FIELDS | SUBSIDY_FIELDS
-    elif role == "bank_officer":
-        ALLOWED_FIELDS = BANK_FIELDS
-    elif role == "agency_officer":
-        ALLOWED_FIELDS = SUBSIDY_FIELDS
-    elif role == "agronomist":
-        ALLOWED_FIELDS = {"agronomist_recommendations", "plantation_date", "seedlings_count"}
+        ALLOWED_FIELDS = ADMIN_FIELDS | CONSTRUCTION_FIELDS
     else:
         ALLOWED_FIELDS = set()
 
-    updates = body.updates
+    updates = dict(body.updates)
+
+    # ── Optimistic concurrency — reject a stale write (lost-update guard) ──
+    client_version = updates.pop("version", None)
+    updates.pop("updated_at", None)
+    if client_version is not None and project.version is not None and int(client_version) != int(project.version):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This project was changed by someone else since you opened it. Reload and try again.",
+        )
+
     applied = []
     for key, value in updates.items():
         if key in ALLOWED_FIELDS and hasattr(project, key):
             setattr(project, key, value)
             applied.append(key)
+
+    if applied:
+        project.version = (project.version or 1) + 1
+        log_activity(db, project_id, current_user,
+                     action="updated fields: " + ", ".join(applied))
 
     db.commit()
     db.refresh(project)

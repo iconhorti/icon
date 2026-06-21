@@ -27,8 +27,8 @@ class ComponentUpdate(BaseModel):
     eligible_cost_per_unit:  Optional[float] = None
     subsidy_rate_per_unit:   Optional[float] = None
     unit_type:               Optional[str]   = None
-    min_qty:            Optional[int]   = None
-    max_qty:            Optional[int]   = None
+    min_qty:                 Optional[int]   = None
+    max_qty:                 Optional[int]   = None
     is_subsidy_eligible:     Optional[int]   = None
     is_active:               Optional[int]   = None
     description:             Optional[str]   = None

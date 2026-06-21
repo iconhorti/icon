@@ -5,11 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "gen:api-types": "openapi-typescript http://localhost:8000/openapi.json -o src/types/api.ts"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.101.0",
     "ag-grid-community": "^35.2.1",
     "ag-grid-react": "^35.2.1",
     "axios": "^1.14.0",
@@ -30,6 +33,9 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "openapi-typescript": "^7.13.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.60.1",
     "vite": "^8.0.1"
   }
 }

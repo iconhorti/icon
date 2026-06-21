@@ -41,11 +41,12 @@ export const projectsApi = baseApi.injectEndpoints({
       query: (id) => `/projects/${id}`,
       providesTags: (_result, _err, id) => [{ type: 'Projects', id }],
     }),
-    updateProjectFields: build.mutation<Project, { id: number; fields: Partial<Project> }>({
-      query: ({ id, fields }) => ({
+    updateProjectFields: build.mutation<Project, { id: number; fields: Partial<Project>; version?: number; updated_at?: string }>({
+      query: ({ id, fields, version, updated_at }) => ({
         url:    `/projects/${id}/fields`,
         method: 'PATCH',
-        body:   fields,
+        // Concurrency token travels in the body so the backend can 409 a stale write.
+        body:   { ...fields, ...(version !== undefined ? { version } : {}), ...(updated_at ? { updated_at } : {}) },
       }),
       invalidatesTags: (_result, _err, { id }) => [{ type: 'Projects', id }, 'Stats'],
     }),

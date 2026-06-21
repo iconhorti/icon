@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { queueAdd } from '../../db/syncQueue';
+import { PhotoCapture, photosToPayload, type PhotoMap } from '../../components/shared/PhotoCapture';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
 const ORANGE = '#E65100';
 const MILESTONES = ['m1_foundation','m2_structure_erection','m3_covering_material','m4_trellising','m5_drip_fitting','m6_bed_preparation','m7_plantation'];
 const ML: Record<string,string> = { m1_foundation:'M1', m2_structure_erection:'M2', m3_covering_material:'M3', m4_trellising:'M4', m5_drip_fitting:'M5', m6_bed_preparation:'M6', m7_plantation:'M7' };
+const DPR_PHOTOS = ['Before', 'After'] as const;
 
 export default function DPRScreen() {
   const [milestone, setMilestone]   = useState(MILESTONES[0]);
@@ -13,15 +15,20 @@ export default function DPRScreen() {
   const [unskilled, setUnskilled]   = useState('');
   const [workDone, setWorkDone]     = useState('');
   const [materials, setMaterials]   = useState('');
+  const [photos, setPhotos]         = useState<PhotoMap>({});
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (workDone.trim().length < 30) { Alert.alert('Work Description Required', 'Enter at least 30 characters.'); return; }
+    if (Object.keys(photos).length < DPR_PHOTOS.length) {
+      Alert.alert('Photos Required', `Capture both photos (${Object.keys(photos).length}/${DPR_PHOTOS.length}) before submitting.`);
+      return;
+    }
     setSubmitting(true);
-    await queueAdd('dpr', '/projects/dpr', { milestone_key: milestone, skilled_count: parseInt(skilled) || 0, unskilled_count: parseInt(unskilled) || 0, work_done: workDone.trim(), materials_note: materials.trim(), submitted_at: new Date().toISOString() });
+    await queueAdd('dpr', '/projects/dpr', { milestone_key: milestone, skilled_count: parseInt(skilled) || 0, unskilled_count: parseInt(unskilled) || 0, work_done: workDone.trim(), materials_note: materials.trim(), photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
     setSubmitting(false);
     Alert.alert('DPR Saved', 'Daily progress report saved and will sync when connected.');
-    setWorkDone(''); setSkilled(''); setUnskilled(''); setMaterials('');
+    setWorkDone(''); setSkilled(''); setUnskilled(''); setMaterials(''); setPhotos({});
   };
 
   return (
@@ -51,7 +58,8 @@ export default function DPRScreen() {
         <Text style={styles.charCount}>{workDone.length} chars</Text>
         <Text style={styles.label}>Materials Consumed</Text>
         <TextInput style={styles.input} placeholder="GI Pipe 50m, UV Film 20m..." value={materials} onChangeText={setMaterials} />
-        <View style={styles.photoNote}><Text style={styles.photoNoteTxt}>2 GPS-tagged photos required · Camera in Phase 2 polish</Text></View>
+        <Text style={styles.label}>Progress Photos (before / after)</Text>
+        <PhotoCapture slots={DPR_PHOTOS} photos={photos} onChange={setPhotos} min={DPR_PHOTOS.length} accent={ORANGE} />
         <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnTxt}>Submit DPR</Text>}
         </TouchableOpacity>

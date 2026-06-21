@@ -3,21 +3,28 @@ import { ScrollView, View, Text, TouchableOpacity, Alert, StyleSheet } from 'rea
 import { useGetDocumentsQuery, useReviewDocumentMutation } from '../../store/api/documentsApi';
 import { EmptyState }    from '../../components/shared/EmptyState';
 import { OfflineBanner } from '../../components/shared/OfflineBanner';
+import { versionOf, isConflict, CONFLICT_MESSAGE } from '../../utils/concurrency';
+import type { ProjectDocument } from '../../store/api/documentsApi';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
 export default function ApprovalQueueScreen() {
   const { data: docs = [] }         = useGetDocumentsQuery({ status: 'pending' });
   const [reviewDoc, { isLoading }]  = useReviewDocumentMutation();
 
-  const approve = async (id: number, farmerName?: string) => {
+  const approve = async (doc: ProjectDocument) => {
     Alert.alert(
       'Confirm Approval',
-      `Approve document for ${farmerName ?? 'this farmer'}?`,
+      `Approve document for ${doc.farmer_name ?? 'this farmer'}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Approve', onPress: async () => {
-            await reviewDoc({ id, status: 'approved' });
+            try {
+              await reviewDoc({ id: doc.id, status: 'approved', ...versionOf(doc) }).unwrap();
+            } catch (err) {
+              if (isConflict(err)) Alert.alert('Changed elsewhere', CONFLICT_MESSAGE);
+              else Alert.alert('Error', 'Could not approve. Please try again.');
+            }
           },
         },
       ]
@@ -38,7 +45,7 @@ export default function ApprovalQueueScreen() {
             </View>
             <TouchableOpacity
               style={styles.approveBtn}
-              onPress={() => approve(doc.id, doc.farmer_name)}
+              onPress={() => approve(doc)}
               disabled={isLoading}
             >
               <Text style={styles.approveTxt}>Approve</Text>

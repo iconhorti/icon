@@ -87,3 +87,22 @@ STAGE_LABELS = {
     "subsidy_released":     "Subsidy Released",
     "completed":            "Completed",
 }
+
+
+# Documents that must be present before a project can leave a given stage.
+# Keyed by stage id → list of DocumentType.name. Consumed by GET /uploads/types
+# (?stage=&required=true) and the web RequiredDocsChecklist.
+STAGE_REQUIRED_DOCS = {
+    "document_collection": [
+        "Aadhaar Card (Front)", "Aadhaar Card (Back)", "PAN Card",
+        "7/12 Extract (Land Record)", "8A Certificate",
+    ],
+    "design_boq":   ["DPR Document", "BOQ Sheet"],
+    "dpr_ready":    ["DPR Document", "BOQ Sheet"],
+    "bank_processing": [
+        "Bank Sanction Letter", "Bank Appraisal Report", "Bank Legal Search Report",
+    ],
+    "goc_registration": ["GOC Letter"],
+    "subsidy_claim":    ["Subsidy Claim Form"],
+    "completed":        ["Completion Certificate"],
+}

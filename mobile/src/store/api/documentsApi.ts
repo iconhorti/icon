@@ -16,9 +16,11 @@ export interface ProjectDocument {
 }
 
 export interface ReviewInput {
-  id:     number;
-  status: 'approved' | 'rejected' | 'held';
-  note?:  string;
+  id:          number;
+  status:      'approved' | 'rejected' | 'held';
+  note?:       string;
+  version?:    number;   // concurrency token (optimistic locking)
+  updated_at?: string;
 }
 
 export const documentsApi = baseApi.injectEndpoints({

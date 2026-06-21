@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { cacheClear } from '../db/cache';
+import { queueClear } from '../db/syncQueue';
+import { API_URL } from '../constants/config';
 
 const USER_KEY = 'icon_user';
 
@@ -41,8 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (phone: string, password: string): Promise<void> => {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.100:8000/api/v1';
-    const res = await fetch(`${apiUrl}/auth/login`, {
+    const res = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: phone, password }),
@@ -65,7 +66,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async (): Promise<void> => {
+    // Clear BOTH the read cache and the pending-write queue so nothing from this
+    // user lingers — a queued offline write must never replay under another user.
     await cacheClear();
+    await queueClear();
     await SecureStore.deleteItemAsync(USER_KEY);
     setUser(null);
   };

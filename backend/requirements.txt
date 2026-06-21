@@ -4,7 +4,11 @@ sqlalchemy==2.0.40
 pydantic==2.11.1
 python-multipart==0.0.20
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
 aiofiles==24.1.0
 pillow==11.1.0
 email-validator==2.3.0
+
+# PostgreSQL driver — required when DATABASE_URL points at Postgres (prod).
+# Not needed for the SQLite dev fallback, but installing it doesn't hurt dev.
+psycopg2-binary==2.9.10

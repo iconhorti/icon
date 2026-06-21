@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { queueAdd } from '../../db/syncQueue';
+import { PhotoCapture, photosToPayload, type PhotoMap } from '../../components/shared/PhotoCapture';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
 const PURPLE = '#6A1B9A';
 const PESTS    = ['Whitefly', 'Aphids', 'Thrips', 'Spider Mite', 'Mealybug'];
 const DISEASES = ['Powdery Mildew', 'Leaf Curl Virus', 'Botrytis', 'Fusarium Wilt', 'Bacterial Blight'];
+const HA_PHOTOS = ['Crop', 'Pest / Disease'] as const;
 
 export default function HealthAssessmentScreen() {
   const [cropStage, setCropStage]         = useState('');
@@ -15,6 +17,7 @@ export default function HealthAssessmentScreen() {
   const [pestSeverity, setPestSeverity]   = useState(1);
   const [selectedDiseases, setSelectedDiseases] = useState<string[]>([]);
   const [nutrients, setNutrients]         = useState('');
+  const [photos, setPhotos]               = useState<PhotoMap>({});
   const [submitting, setSubmitting]       = useState(false);
 
   const togglePest    = (p: string) => setSelectedPests(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]);
@@ -22,10 +25,10 @@ export default function HealthAssessmentScreen() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    await queueAdd('health_assessment', '/agronomist/farms/0/assessment', { crop_stage: cropStage, plant_height: parseFloat(plantHeight) || 0, canopy_pct: parseFloat(canopyPct) || 0, pests: selectedPests.map(p => ({ type: p, severity: pestSeverity, treatment: '' })), diseases: selectedDiseases.map(d => ({ type: d, description: '' })), nutrients, submitted_at: new Date().toISOString() });
+    await queueAdd('health_assessment', '/agronomist/farms/0/assessment', { crop_stage: cropStage, plant_height: parseFloat(plantHeight) || 0, canopy_pct: parseFloat(canopyPct) || 0, pests: selectedPests.map(p => ({ type: p, severity: pestSeverity, treatment: '' })), diseases: selectedDiseases.map(d => ({ type: d, description: '' })), nutrients, photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
     setSubmitting(false);
     Alert.alert('Saved', 'Assessment saved and will sync when connected.');
-    setCropStage(''); setPlantHeight(''); setCanopyPct(''); setSelectedPests([]); setSelectedDiseases([]); setNutrients('');
+    setCropStage(''); setPlantHeight(''); setCanopyPct(''); setSelectedPests([]); setSelectedDiseases([]); setNutrients(''); setPhotos({});
   };
 
   return (
@@ -47,6 +50,8 @@ export default function HealthAssessmentScreen() {
         <View style={styles.chipRow}>{DISEASES.map(d => <TouchableOpacity key={d} style={[styles.chip, selectedDiseases.includes(d) && styles.chipActive]} onPress={() => toggleDisease(d)}><Text style={[styles.chipTxt, selectedDiseases.includes(d) && { color: '#fff' }]}>{d}</Text></TouchableOpacity>)}</View>
         <Text style={styles.label}>Nutrient Observations</Text>
         <TextInput style={[styles.input, { minHeight: 80 }]} placeholder="Calcium deficiency, iron chlorosis..." multiline value={nutrients} onChangeText={setNutrients} textAlignVertical="top" />
+        <Text style={styles.label}>Photos (optional)</Text>
+        <PhotoCapture slots={HA_PHOTOS} photos={photos} onChange={setPhotos} accent={PURPLE} />
         <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnTxt}>Save Assessment</Text>}
         </TouchableOpacity>

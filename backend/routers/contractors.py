@@ -180,7 +180,7 @@ def remove_skill(
 
 # ─── GET SKILLS FOR A SPECIFIC CONTRACTOR ─────────────────────────────────────
 @router.get("/contractor-skills/{contractor_id}")
-def get_contractor_skills(
+def list_contractor_skill_assignments(
     contractor_id: int,
     db: Session = Depends(get_db),
     current_user: models.Person = Depends(get_current_user),
@@ -193,6 +193,7 @@ def get_contractor_skills(
         db.query(models.ContractorSkill)
         .options(joinedload(models.ContractorSkill.skill))
         .filter(models.ContractorSkill.contractor_id == contractor_id)
+        .all()
     )
 
 

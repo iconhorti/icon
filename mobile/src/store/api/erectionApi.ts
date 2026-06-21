@@ -38,6 +38,8 @@ export interface MilestoneUpdateInput {
   milestone_key: string;
   progress_pct:  number;
   description:   string;
+  version?:      number;   // concurrency token (optimistic locking)
+  updated_at?:   string;
 }
 
 export const erectionApi = baseApi.injectEndpoints({

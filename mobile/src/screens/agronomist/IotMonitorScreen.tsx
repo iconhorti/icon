@@ -2,9 +2,9 @@ import React, { useEffect, useState, useRef } from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import type { RouteProp } from '@react-navigation/native';
+import { API_URL } from '../../constants/config';
 
 const PURPLE = '#6A1B9A';
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.100:8000/api/v1';
 const WS_URL  = API_URL.replace(/^http/, 'ws');
 
 interface SensorData { temperature: number; humidity: number; co2: number; soil_moisture: number; ec: number; ph: number; }

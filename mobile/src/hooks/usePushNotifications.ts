@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import * as Notifications from 'expo-notifications';
 import * as Device        from 'expo-device';
 import { type EventSubscription } from 'expo-modules-core';
+import { API_URL } from '../constants/config';
 
 // Configure how notifications are handled when app is foregrounded
 Notifications.setNotificationHandler({
@@ -48,8 +49,7 @@ export const usePushNotifications = (authToken: string | undefined): void => {
       if (cancelled) return;
 
       // Register token with ICON backend (non-critical — silently ignore errors)
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.1.100:8000/api/v1';
-      await fetch(`${apiUrl}/devices/register`, {
+      await fetch(`${API_URL}/devices/register`, {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',

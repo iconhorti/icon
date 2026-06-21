@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { queueAdd } from '../../db/syncQueue';
+import { PhotoCapture, photosToPayload, type PhotoMap } from '../../components/shared/PhotoCapture';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
 const PURPLE = '#6A1B9A';
+const VR_PHOTOS = ['Photo 1', 'Photo 2'] as const;
 
 export default function VisitReportScreen() {
   const [findings, setFindings] = useState('');
@@ -12,15 +14,16 @@ export default function VisitReportScreen() {
   const [reco3, setReco3]       = useState('');
   const [nextDate, setNextDate] = useState('');
   const [otp, setOtp]           = useState('');
+  const [photos, setPhotos]     = useState<PhotoMap>({});
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
     if (findings.trim().length < 20) { Alert.alert('Findings Required', 'Enter at least 20 characters.'); return; }
     setSubmitting(true);
-    await queueAdd('visit_report', '/agronomist/farms/0/visit-report', { findings_summary: findings.trim(), recommendations: [reco1, reco2, reco3].filter(r => r.trim()), next_visit_date: nextDate, farmer_otp: otp.trim() || undefined, submitted_at: new Date().toISOString() });
+    await queueAdd('visit_report', '/agronomist/farms/0/visit-report', { findings_summary: findings.trim(), recommendations: [reco1, reco2, reco3].filter(r => r.trim()), next_visit_date: nextDate, farmer_otp: otp.trim() || undefined, photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
     setSubmitting(false);
     Alert.alert('Saved', 'Visit report saved and PDF will be sent to farmer on sync.');
-    setFindings(''); setReco1(''); setReco2(''); setReco3(''); setNextDate(''); setOtp('');
+    setFindings(''); setReco1(''); setReco2(''); setReco3(''); setNextDate(''); setOtp(''); setPhotos({});
   };
 
   return (
@@ -36,6 +39,8 @@ export default function VisitReportScreen() {
         <TextInput style={styles.input} placeholder="DD/MM/YYYY" value={nextDate} onChangeText={setNextDate} />
         <Text style={styles.label}>Farmer OTP (optional)</Text>
         <TextInput style={styles.input} placeholder="6-digit OTP from farmer's mobile" value={otp} onChangeText={setOtp} keyboardType="numeric" maxLength={6} />
+        <Text style={styles.label}>Photos (optional)</Text>
+        <PhotoCapture slots={VR_PHOTOS} photos={photos} onChange={setPhotos} accent={PURPLE} />
         <View style={styles.pdfNote}><Text style={styles.pdfNoteTxt}>PDF auto-sent to farmer WhatsApp within 5 min of sync</Text></View>
         <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
           {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitBtnTxt}>Submit Visit Report</Text>}
