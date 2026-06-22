@@ -10,6 +10,8 @@ import type { ColDef } from 'ag-grid-community';
 import LocationPicker from '../components/LocationPicker';
 import './FarmerManagement.css';
 import { useToast } from '../context/ToastContext';
+import Badge from '../components/Badge';
+import Avatar from '../components/Avatar';
 
 // ─── Tiny helpers ──────────────────────────────────────────────────────────────
 const fmtNum = (n: number | null | undefined): string => (n ?? 0).toLocaleString('en-IN');
@@ -367,22 +369,35 @@ const FarmerManagement = () => {
               loading={loading}
               columnDefs={[
                 { headerName: 'Farmer ID', valueFormatter: (p: any) => `F-${String(p.data.id).padStart(4,'0')}`, field: 'id', maxWidth: 110 },
-                { headerName: t('col.name'), valueGetter: (p: any) => `${p.data.first_name} ${p.data.last_name || ''}` },
+                { headerName: t('col.name'), valueGetter: (p: any) => `${p.data.first_name} ${p.data.last_name || ''}`,
+                  cellRenderer: (p: any) => {
+                    const name = p.value || '';
+                    return (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Avatar name={name} size={22} />
+                        {name}
+                      </span>
+                    );
+                  },
+                },
                 { headerName: t('col.phone'), field: 'phone_primary' },
                 { headerName: t('col.district'), valueGetter: (p: any) => p.data.village?.taluka?.district?.name || 'N/A' },
                 { headerName: 'Land (SQM)', valueGetter: (p: any) => p.data.farmer_profile?.land_area ? `${p.data.farmer_profile.land_area}` : 'N/A' },
                 { headerName: 'Aadhaar', valueGetter: (p: any) => p.data.farmer_profile?.aadhaar_number, maxWidth: 130,
                   cellRenderer: (p: any) => p.value
-                    ? <span className="badge badge-success">✔ Linked</span>
-                    : <span className="badge badge-secondary">—</span> },
+                    ? <Badge tone="success">✔ Linked</Badge>
+                    : <Badge tone="neutral">—</Badge>,
+                },
                 { headerName: 'PAN', valueGetter: (p: any) => p.data.farmer_profile?.pan_number, maxWidth: 120,
                   cellRenderer: (p: any) => p.value
-                    ? <span className="badge badge-success">✔ Linked</span>
-                    : <span className="badge badge-secondary">—</span> },
+                    ? <Badge tone="success">✔ Linked</Badge>
+                    : <Badge tone="neutral">—</Badge>,
+                },
                 { headerName: t('col.status'), field: 'is_active', maxWidth: 110,
                   cellRenderer: (p: any) => p.value === 1
-                    ? <span className="badge badge-success"><FileCheck2 size={12} /> Active</span>
-                    : <span className="badge badge-warning"><UserX size={12} /> Inactive</span> },
+                    ? <Badge tone="success"><FileCheck2 size={12} /> Active</Badge>
+                    : <Badge tone="pending"><UserX size={12} /> Inactive</Badge>,
+                },
                 { headerName: t('col.actions'), filter: false, sortable: false, pinned: 'right' as const, maxWidth: 120,
                   cellRenderer: (p: any) => (
                     <div className="flex-center-gap">
