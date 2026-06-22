@@ -10,6 +10,8 @@ import { RefreshCw, Edit2, Ban, CheckCircle, X, Save, Plus, Leaf,
 import AgTable from '../components/AgTable';
 import type { ColDef } from 'ag-grid-community';
 import { useToast } from '../context/ToastContext';
+import Badge from '../components/Badge';
+import Avatar from '../components/Avatar';
 
 interface KpiCardProps {
   icon: ComponentType<LucideProps>;
@@ -223,14 +225,24 @@ const AgronomistsManagement = () => {
               rowData={agronomists}
               loading={loading}
               columnDefs={[
-                { headerName: t('col.name'), valueGetter: (p: any) => `${p.data.first_name} ${p.data.last_name || ''}` },
+                { headerName: t('col.name'), valueGetter: (p: any) => `${p.data.first_name} ${p.data.last_name || ''}`,
+                  cellRenderer: (p: any) => {
+                    const name = p.value || '';
+                    return (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Avatar name={name} size={22} />
+                        {name}
+                      </span>
+                    );
+                  },
+                },
                 { headerName: t('col.phone'), field: 'phone_primary' },
                 { headerName: t('col.email'), field: 'email', valueFormatter: (p: any) => p.value || '—' },
                 { headerName: t('col.designation'), field: 'designation', valueFormatter: (p: any) => p.value || '—' },
                 { headerName: t('col.district'), field: 'district', valueFormatter: (p: any) => p.value || '—' },
                 { headerName: t('col.status'), field: 'is_active', maxWidth: 120, cellRenderer: (p: any) => p.value
-                  ? <span className="badge badge-success">Active</span>
-                  : <span className="badge badge-danger">Suspended</span> },
+                  ? <Badge tone="success">Active</Badge>
+                  : <Badge tone="danger">Suspended</Badge> },
                 { headerName: t('col.actions'), filter: false, sortable: false, pinned: 'right' as const, maxWidth: 110,
                   cellRenderer: (p: any) => (
                     <div className="flex-center-gap">
