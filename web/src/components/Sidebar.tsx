@@ -235,7 +235,7 @@ const Sidebar = () => {
   return (
     <aside className="sidebar">
       {/* Brand */}
-      <div className="sidebar-logo" data-tooltip="ICON">
+      <div className="sidebar-logo" data-tooltip="ICON" aria-label="ICON">
         <div className="logo-icon">I</div>
       </div>
 
@@ -250,6 +250,7 @@ const Sidebar = () => {
                 key={to + label}
                 to={to}
                 data-tooltip={label}
+                aria-label={label}
                 className={() => {
                   const isRoleMatch = location.search.includes(qs);
                   return `nav-item ${isRoleMatch ? 'active' : ''}`;
@@ -265,6 +266,7 @@ const Sidebar = () => {
               to={to}
               end={to === '/'}
               data-tooltip={label}
+              aria-label={label}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
               <Icon size={18} />
@@ -282,14 +284,14 @@ const Sidebar = () => {
           <LanguageSwitcher />
         </div>
         {SETTINGS_ROLES.has(user.role) && (
-          <NavLink to="/settings" data-tooltip="Settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+          <NavLink to="/settings" data-tooltip="Settings" aria-label="Settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
             <Settings size={18} />
           </NavLink>
         )}
-        <button onClick={handleLogout} className="nav-item logout-btn" data-tooltip="Logout">
+        <button onClick={handleLogout} className="nav-item logout-btn" data-tooltip="Logout" aria-label="Logout">
           <LogOut size={18} />
         </button>
-        <div className="sidebar-user" data-tooltip={`${user.first_name ?? 'User'} · ${meta.label}`}>
+        <div className="sidebar-user" data-tooltip={`${user.first_name ?? 'User'} · ${meta.label}`} aria-label={`${user.first_name ?? 'User'} · ${meta.label}`}>
           <div className="user-avatar">{(user.first_name?.[0] ?? 'U').toUpperCase()}</div>
         </div>
       </div>
