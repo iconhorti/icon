@@ -51,13 +51,13 @@ const Layout = () => {
       <Sidebar />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
         {/* Global Action Header */}
-        <header style={{ 
-          display: 'flex', 
-          justifyContent: 'flex-end', 
-          alignItems: 'center', 
-          padding: '0.75rem 2rem', 
-          background: 'var(--color-bg-card)', 
-          borderBottom: '1px solid var(--glass-border)',
+        <header style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          padding: '0.75rem 2rem',
+          background: 'var(--color-bg-card)',
+          borderBottom: '1px solid var(--color-border)',
           gap: '1rem',
           zIndex: 10
         }}>
