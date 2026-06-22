@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -6,18 +7,28 @@ import { ROLE_SETS, hasRole } from '../lib/roles';
 import { useTranslation } from '../i18n/useTranslation';
 import AgTable from '../components/AgTable';
 import type { ColDef } from 'ag-grid-community';
+import Badge, { type BadgeTone } from '../components/Badge';
+import Avatar from '../components/Avatar';
+import FilterPills from '../components/FilterPills';
+import KpiCard from '../components/KpiCard';
 import './ProjectList.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmtCurrency = (v: number | string | null | undefined): string =>
   v ? `₹${Number(v).toLocaleString('en-IN')}` : '—';
 
-const stageBadgeColor = (stage: string = '') => {
-  if (stage.includes('completed') || stage.includes('released')) return '#22c55e';
-  if (stage.includes('bank') || stage.includes('goc'))             return '#f59e0b';
-  if (stage.includes('m') || stage.includes('erect'))              return '#6366f1';
-  if (stage.includes('subsidy') || stage.includes('committee'))    return '#8b5cf6';
-  return '#0ea5e9';
+const stageTone = (stage: string = ''): BadgeTone => {
+  if (stage.includes('completed') || stage.includes('released')) return 'success';
+  if (stage.includes('bank') || stage.includes('goc'))             return 'pending';
+  if (stage.includes('m') || stage.includes('erect'))              return 'progress';
+  if (stage.includes('subsidy') || stage.includes('committee'))    return 'financial';
+  return 'neutral';
+};
+
+const priorityTone = (priority: string = ''): BadgeTone => {
+  if (priority === 'high') return 'urgent';
+  if (priority === 'normal') return 'progress';
+  return 'neutral';
 };
 
 // ─── Column definitions (all named so the picker can read them) ──────────────
@@ -36,6 +47,15 @@ const buildColDefs = (t: (k: string) => string): ColDef[] => [
       p.data.farmer
         ? `${p.data.farmer.first_name} ${p.data.farmer.last_name || ''}`
         : `Farmer #${p.data.farmer_id}`,
+    cellRenderer: (p: any) => {
+      const name = p.value || '';
+      return (
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Avatar name={name} size={22} />
+          {name}
+        </span>
+      );
+    },
   },
   {
     headerName: t('col.dealer'),
@@ -106,30 +126,20 @@ const buildColDefs = (t: (k: string) => string): ColDef[] => [
     headerName: t('col.stage'),
     field: 'project_stage',
     cellRenderer: (p: any) => (
-      <span style={{
-        background: `${stageBadgeColor(p.value)}18`,
-        color: stageBadgeColor(p.value),
-        border: `1px solid ${stageBadgeColor(p.value)}44`,
-        padding: '2px 8px', borderRadius: 6,
-        fontSize: '0.72rem', fontWeight: 700, whiteSpace: 'nowrap',
-      }}>
+      <Badge tone={stageTone(p.value)}>
         {p.value ? p.value.replace(/_/g, ' ') : '—'}
-      </span>
+      </Badge>
     ),
   },
   {
     headerName: t('col.priority'),
     field: 'priority',
     maxWidth: 110,
-    cellRenderer: (p: any) => {
-      const colors: Record<string, string> = { high: '#ef4444', normal: '#0ea5e9', low: '#94a3b8' };
-      const c = colors[p.value] || '#94a3b8';
-      return (
-        <span style={{ color: c, fontWeight: 600, fontSize: '0.8rem' }}>
-          {p.value ? p.value.charAt(0).toUpperCase() + p.value.slice(1) : '—'}
-        </span>
-      );
-    },
+    cellRenderer: (p: any) => (
+      <Badge tone={priorityTone(p.value)}>
+        {p.value ? p.value.charAt(0).toUpperCase() + p.value.slice(1) : '—'}
+      </Badge>
+    ),
   },
   {
     headerName: 'GOC Date',
@@ -181,21 +191,31 @@ const ProjectList = () => {
 
   // Read ?stage= from URL for pre-filtering (dashboard drill-downs pass this)
   const stageFilter = new URLSearchParams(location.search).get('stage') || '';
+  const [pillFilter, setPillFilter] = useState(stageFilter || 'all');
 
   const { user } = useAuth();
   const canCreate = hasRole(user?.role, ROLE_SETS.PROJECT_CREATE);
 
+  const effectiveStage = pillFilter === 'all' ? '' : pillFilter;
+
   // TODO: migrate to server-side pagination when project count exceeds ~500
-  const params: Record<string, any> = { limit: 500, ...(stageFilter ? { stage: stageFilter } : {}) };
+  const params: Record<string, any> = { limit: 500, ...(effectiveStage ? { stage: effectiveStage } : {}) };
   const { data: projects = [], isLoading: loading, refetch } = useProjects(params);
   const fetchProjects = () => { refetch(); };
+
+  // KPI counts — computed client-side from the currently-loaded (unfiltered-by-pill) page;
+  // re-fetched whenever the pill filter changes since `params` above scopes the query itself.
+  const total = projects.length;
+  const completedCount = projects.filter((p: any) => p.project_stage?.includes('completed')).length;
+  const bankCount = projects.filter((p: any) => p.project_stage?.includes('bank')).length;
+  const constructionCount = projects.filter((p: any) => /^m\d/.test(p.project_stage || '')).length;
 
   return (
     <div className="animate-fade-in">
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">📋 {t('projects.title')}</h1>
+          <h1 className="page-title">{t('projects.title')}</h1>
           <p className="page-subtitle">
             {stageFilter
               ? t('projects.atStage', { stage: stageFilter.replace(/_/g, ' ') })
@@ -214,11 +234,32 @@ const ProjectList = () => {
         </div>
       </div>
 
+      {/* KPI band */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+        <KpiCard icon="📁" value={total} label="Total Projects" tone="financial" />
+        <KpiCard icon="🏦" value={bankCount} label="Bank Processing" tone="pending" />
+        <KpiCard icon="🏗️" value={constructionCount} label="In Construction" tone="progress" />
+        <KpiCard icon="✅" value={completedCount} label="Completed" tone="success" />
+      </div>
+
+      {/* Stage filter pills */}
+      <div style={{ marginBottom: 14 }}>
+        <FilterPills
+          options={[
+            { value: 'all', label: 'All Stages' },
+            { value: 'farmer_onboarding', label: 'Onboarding' },
+            { value: 'bank_processing', label: 'Bank' },
+            { value: 'm1_foundation', label: 'Construction' },
+            { value: 'subsidy_claim', label: 'Subsidy' },
+            { value: 'completed', label: 'Completed' },
+          ]}
+          value={pillFilter}
+          onChange={setPillFilter}
+        />
+      </div>
+
       {/* Grid card — AgTable handles the column picker internally */}
-      <div
-        className="glass-card"
-        style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--glass-border)' }}
-      >
+      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
         <AgTable
           exportFileName="projects"
           rowData={projects}
