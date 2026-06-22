@@ -235,25 +235,13 @@ const Sidebar = () => {
   return (
     <aside className="sidebar">
       {/* Brand */}
-      <div className="sidebar-header">
+      <div className="sidebar-logo" data-tooltip="ICON">
         <div className="logo-icon">I</div>
-        <div>
-          <h2 className="brand-name">ICON</h2>
-          <p className="brand-subtitle">Greenhouse ERP</p>
-        </div>
-      </div>
-
-      {/* Role Badge */}
-      <div className="role-banner">
-        <span className="role-emoji">{meta.emoji}</span>
-        <span className="role-label">{meta.label}</span>
       </div>
 
       {/* Nav Items */}
       <nav className="sidebar-nav">
-        <p className="nav-label">MENU</p>
         {navItems.map(({ to, icon: Icon, label }) => {
-          // Query-param links (e.g. /staff?role=project_manager) need manual active detection
           const hasQuery = to.includes('?');
           if (hasQuery) {
             const [, qs] = to.split('?');
@@ -261,16 +249,13 @@ const Sidebar = () => {
               <NavLink
                 key={to + label}
                 to={to}
+                data-tooltip={label}
                 className={() => {
-                  // Use the reactive `location` from useLocation — NOT
-                  // window.location.search which is a non-reactive DOM snapshot
-                  // and breaks active-link highlighting after SPA navigation.
                   const isRoleMatch = location.search.includes(qs);
                   return `nav-item ${isRoleMatch ? 'active' : ''}`;
                 }}
               >
-                <Icon size={20} />
-                <span>{label}</span>
+                <Icon size={18} />
               </NavLink>
             );
           }
@@ -279,10 +264,10 @@ const Sidebar = () => {
               key={to + label}
               to={to}
               end={to === '/'}
+              data-tooltip={label}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
-              <Icon size={20} />
-              <span>{label}</span>
+              <Icon size={18} />
               {to === '/notifications' && unreadCount > 0 && (
                 <span className="notif-badge-pill">{unreadCount > 99 ? '99+' : unreadCount}</span>
               )}
@@ -291,30 +276,22 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* User Card */}
-      <div className="sidebar-user">
-        <div className="user-avatar">{(user.first_name?.[0] ?? 'U').toUpperCase()}</div>
-        <div className="user-info">
-          <p className="user-name">{user.first_name ?? 'User'}</p>
-          <p className="user-role">{meta.label}</p>
-        </div>
-      </div>
-
-      {/* Footer — Settings only for admin/owner */}
+      {/* Footer — Settings (admin/owner only), language, logout, user avatar */}
       <div className="sidebar-footer">
-        <div style={{ padding: '0.5rem 0.75rem' }}>
+        <div className="sidebar-lang" data-tooltip="Language">
           <LanguageSwitcher />
         </div>
         {SETTINGS_ROLES.has(user.role) && (
-          <NavLink to="/settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <Settings size={20} />
-            <span>Settings</span>
+          <NavLink to="/settings" data-tooltip="Settings" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+            <Settings size={18} />
           </NavLink>
         )}
-        <button onClick={handleLogout} className="nav-item logout-btn">
-          <LogOut size={20} />
-          <span>Logout</span>
+        <button onClick={handleLogout} className="nav-item logout-btn" data-tooltip="Logout">
+          <LogOut size={18} />
         </button>
+        <div className="sidebar-user" data-tooltip={`${user.first_name ?? 'User'} · ${meta.label}`}>
+          <div className="user-avatar">{(user.first_name?.[0] ?? 'U').toUpperCase()}</div>
+        </div>
       </div>
     </aside>
   );
