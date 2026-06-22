@@ -160,9 +160,9 @@ const ColPicker = ({ columnDefs, gridRef }: ColPickerProps) => {
         title="Choose columns"
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
-          background: open ? 'var(--color-primary)' : 'var(--glass-bg, #f8fafc)',
-          color: open ? '#fff' : 'var(--color-text-main, #1e293b)',
-          border: `1.5px solid ${open ? 'var(--color-primary)' : 'var(--glass-border, #e2e8f0)'}`,
+          background: open ? 'var(--color-primary)' : 'var(--color-bg-base)',
+          color: open ? '#fff' : 'var(--color-text-main)',
+          border: `1.5px solid ${open ? 'var(--color-primary)' : 'var(--color-border-strong)'}`,
           borderRadius: 8, padding: '0.3rem 0.75rem',
           fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
           transition: 'all 0.15s ease',
@@ -190,16 +190,16 @@ const ColPicker = ({ columnDefs, gridRef }: ColPickerProps) => {
       {open && (
         <div style={{
           position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 9999,
-          background: '#fff', border: '1.5px solid #e2e8f0',
+          background: '#fff', border: '1.5px solid var(--color-border-strong)',
           borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.13)',
           minWidth: 220, maxHeight: 380, display: 'flex', flexDirection: 'column',
           overflow: 'hidden',
         }}>
           {/* Header */}
           <div style={{
-            padding: '0.6rem 1rem', borderBottom: '1px solid #f1f5f9',
-            fontSize: '0.75rem', fontWeight: 700, color: '#64748b',
-            textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f8fafc',
+            padding: '0.6rem 1rem', borderBottom: '1px solid var(--color-border)',
+            fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)',
+            textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--color-bg-base)',
           }}>
             Show / Hide Columns
           </div>
@@ -210,7 +210,7 @@ const ColPicker = ({ columnDefs, gridRef }: ColPickerProps) => {
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               padding: '0.55rem 1rem', cursor: 'pointer',
-              borderBottom: '1px solid #f1f5f9',
+              borderBottom: '1px solid var(--color-border)',
               background: '#fff',
               transition: 'background 0.12s',
             }}
@@ -223,9 +223,9 @@ const ColPicker = ({ columnDefs, gridRef }: ColPickerProps) => {
               readOnly
               checked={allChecked}
               ref={(el: HTMLInputElement | null) => { if (el) el.indeterminate = !allChecked && someChecked; }}
-              style={{ width: 15, height: 15, accentColor: '#6366f1', cursor: 'pointer' }}
+              style={{ width: 15, height: 15, accentColor: 'var(--color-primary)', cursor: 'pointer' }}
             />
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#1e293b' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--color-text-main)' }}>
               Select All
             </span>
           </div>
@@ -251,11 +251,11 @@ const ColPicker = ({ columnDefs, gridRef }: ColPickerProps) => {
                     type="checkbox"
                     readOnly
                     checked={visible}
-                    style={{ width: 15, height: 15, accentColor: '#6366f1', cursor: 'pointer' }}
+                    style={{ width: 15, height: 15, accentColor: 'var(--color-primary)', cursor: 'pointer' }}
                   />
                   <span style={{
                     fontSize: '0.82rem',
-                    color: visible ? '#1e293b' : '#94a3b8',
+                    color: visible ? 'var(--color-text-main)' : 'var(--color-text-faint)',
                     fontWeight: visible ? 500 : 400,
                   }}>
                     {c.headerName}
@@ -267,17 +267,17 @@ const ColPicker = ({ columnDefs, gridRef }: ColPickerProps) => {
 
           {/* Footer */}
           <div style={{
-            padding: '0.5rem 1rem', borderTop: '1px solid #f1f5f9',
-            background: '#f8fafc', display: 'flex', justifyContent: 'space-between',
+            padding: '0.5rem 1rem', borderTop: '1px solid var(--color-border)',
+            background: 'var(--color-bg-base)', display: 'flex', justifyContent: 'space-between',
             alignItems: 'center',
           }}>
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--color-text-faint)' }}>
               {pickerCols.length - hidden.size} of {pickerCols.length} visible
             </span>
             <button
               onClick={() => setHidden(new Set())}
               style={{
-                background: 'none', border: 'none', color: '#6366f1',
+                background: 'none', border: 'none', color: 'var(--color-primary)',
                 fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', padding: 0,
               }}
             >
@@ -410,7 +410,7 @@ const AgTable = ({
         fontWeight:  700,
         fontSize:    '0.82rem',
         color:       '#3730a3',
-        borderTop:   '2px solid #6366f1',
+        borderTop:   '2px solid var(--color-primary)',
         letterSpacing: '0.01em',
       };
     }
@@ -426,8 +426,8 @@ const AgTable = ({
         <div style={{
           display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8,
           padding: '0.5rem 0.75rem',
-          borderBottom: '1px solid var(--glass-border, #e2e8f0)',
-          background: 'var(--glass-bg, #f8fafc)',
+          borderBottom: '1px solid var(--color-border-strong)',
+          background: 'var(--color-bg-base)',
         }}>
           {enableExport && (
             <button
@@ -435,9 +435,9 @@ const AgTable = ({
               title="Export current rows to CSV"
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
-                background: 'var(--glass-bg, #f8fafc)',
-                color: 'var(--color-text-main, #1e293b)',
-                border: '1.5px solid var(--glass-border, #e2e8f0)',
+                background: 'var(--color-bg-base)',
+                color: 'var(--color-text-main)',
+                border: '1.5px solid var(--color-border-strong)',
                 borderRadius: 8, padding: '0.3rem 0.75rem',
                 fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer',
               }}
@@ -462,15 +462,15 @@ const AgTable = ({
           height,
           width: '100%',
           // ── Gridlines ──────────────────────────────────────────────────────
-          '--ag-row-border-color':                '#94a3b8',
+          '--ag-row-border-color':                'var(--color-border)',
           '--ag-row-border-width':                '1px',
-          '--ag-cell-horizontal-border':          'solid #94a3b8',
-          '--ag-header-column-separator-color':   '#64748b',
+          '--ag-cell-horizontal-border':          'solid var(--color-border)',
+          '--ag-header-column-separator-color':   'var(--color-border-strong)',
           '--ag-header-column-separator-height':  '70%',
           '--ag-header-column-separator-width':   '1px',
           // ── Row selection (must be set as CSS var for AG Grid to pick it up) ─
-          '--ag-selected-row-background-color':   '#bbf7d0',
-          '--ag-range-selection-border-color':    '#22c55e',
+          '--ag-selected-row-background-color':   'var(--color-primary-soft)',
+          '--ag-range-selection-border-color':    'var(--color-primary)',
         } as CSSProperties}
       >
         {loading ? (
@@ -492,7 +492,7 @@ const AgTable = ({
             pinnedBottomRowData={pinnedBottom()}
             getRowStyle={getRowStyle}
             rowSelection={selectionProp}
-            overlayNoRowsTemplate='<span style="padding:10px;border:2px solid #e2e8f0;background:#fff;border-radius:4px;">No records found.</span>'
+            overlayNoRowsTemplate='<span style="padding:10px;border:2px solid var(--color-border-strong);background:var(--color-bg-card);border-radius:4px;">No records found.</span>'
             {...rest}
           />
         )}
