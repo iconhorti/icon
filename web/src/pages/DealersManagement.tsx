@@ -11,6 +11,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
 import AgTable from '../components/AgTable';
 import type { ColDef } from 'ag-grid-community';
 import { useToast } from '../context/ToastContext';
+import Badge from '../components/Badge';
+import Avatar from '../components/Avatar';
 
 const EMPTY_FORM = {
   first_name: '', last_name: '', phone_primary: '',
@@ -185,15 +187,27 @@ const DealersManagement = () => {
               rowData={dealers}
               loading={loading}
               columnDefs={[
-                { headerName: t('col.name'), valueGetter: (d: any) => `${d.data.first_name} ${d.data.last_name || ''}` },
+                { headerName: t('col.name'), valueGetter: (d: any) => `${d.data.first_name} ${d.data.last_name || ''}`,
+                  cellRenderer: (p: any) => {
+                    const name = p.value || '';
+                    return (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Avatar name={name} size={22} />
+                        {name}
+                      </span>
+                    );
+                  },
+                },
                 { headerName: t('col.firm'), field: 'firm_name', valueFormatter: (p: any) => p.value || '—' },
                 { headerName: t('col.phone'), field: 'phone_primary' },
                 { headerName: t('col.district'), valueGetter: (d: any) => d.data.village?.taluka?.district?.name || '—' },
                 { headerName: t('col.farmers'), field: 'farmer_count' },
                 { headerName: t('col.projects'), field: 'project_count' },
-                { headerName: t('col.status'), field: 'is_active', cellRenderer: (p: any) => p.value
-                  ? <span className="badge badge-success">Active</span>
-                  : <span className="badge badge-danger">Suspended</span> },
+                { headerName: t('col.status'), field: 'is_active',
+                  cellRenderer: (p: any) => p.value
+                    ? <Badge tone="success">Active</Badge>
+                    : <Badge tone="danger">Suspended</Badge>,
+                },
                 { headerName: t('col.actions'), filter: false, sortable: false, pinned: 'right' as const, maxWidth: 100,
                   cellRenderer: (p: any) => (
                     <div className="flex-center-gap">
