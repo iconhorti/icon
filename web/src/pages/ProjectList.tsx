@@ -19,9 +19,9 @@ const fmtCurrency = (v: number | string | null | undefined): string =>
 
 const stageTone = (stage: string = ''): BadgeTone => {
   if (stage.includes('completed') || stage.includes('released')) return 'success';
+  if (stage.includes('subsidy') || stage.includes('committee') || stage.includes('agency')) return 'financial';
   if (stage.includes('bank') || stage.includes('goc'))             return 'pending';
-  if (stage.includes('m') || stage.includes('erect'))              return 'progress';
-  if (stage.includes('subsidy') || stage.includes('committee'))    return 'financial';
+  if (/^m\d/.test(stage) || stage.includes('erect'))               return 'progress';
   return 'neutral';
 };
 
