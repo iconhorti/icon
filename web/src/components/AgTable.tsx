@@ -26,58 +26,50 @@ import 'ag-grid-community/styles/ag-theme-quartz.css';
 
 // ─── Injected CSS overrides (more reliable than inline CSS vars) ───────────────
 const GRID_STYLES = `
-  /* ── VERTICAL GRIDLINES — cell right borders ── */
+  /* ── Remove harsh grid lines — borders do the separation instead ── */
   .ag-theme-quartz .ag-cell {
-    border-right: 1px solid #94a3b8 !important;
-  }
-  .ag-theme-quartz .ag-header-cell {
-    border-right: 1px solid #94a3b8 !important;
-  }
-  .ag-theme-quartz .ag-header-group-cell {
-    border-right: 1px solid #94a3b8 !important;
-  }
-  /* last cell in row — no double border with pinned col */
-  .ag-theme-quartz .ag-cell:last-child {
     border-right: none !important;
   }
-
-  /* ── Declare CSS vars at theme level so AG Grid's engine picks them up ── */
-  .ag-theme-quartz {
-    --ag-selected-row-background-color: #bbf7d0;
-    --ag-row-hover-color:               #dde5ff;
+  .ag-theme-quartz .ag-header-cell {
+    border-right: none !important;
+    background: var(--color-bg-base) !important;
+  }
+  .ag-theme-quartz .ag-header-cell-text {
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-faint) !important;
   }
 
-  /* Row hover — belt-and-suspenders !important fallback */
+  /* ── Row separators ── */
+  .ag-theme-quartz .ag-row {
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+
+  /* ── Row hover — soft indigo tint ── */
   .ag-theme-quartz .ag-row:not(.ag-row-pinned):hover {
-    background-color: #dde5ff !important;
+    background-color: var(--color-primary-soft) !important;
     cursor: pointer;
   }
 
-  /* Selected row — light green */
+  /* ── Selected row ── */
   .ag-theme-quartz .ag-row-selected,
   .ag-theme-quartz .ag-row-selected .ag-cell {
-    background-color: #bbf7d0 !important;
-  }
-  .ag-theme-quartz .ag-row-selected {
-    border-left: 3px solid #22c55e !important;
+    background-color: var(--color-primary-soft) !important;
   }
 
-  /* Selected + hovered */
-  .ag-theme-quartz .ag-row-selected:hover,
-  .ag-theme-quartz .ag-row-selected:hover .ag-cell {
-    background-color: #86efac !important;
+  /* ── Pinned footer ── */
+  .ag-theme-quartz .ag-row-pinned {
+    background: var(--color-bg-base) !important;
+    font-weight: 700;
   }
 
-  /* Pinned footer — preserve gradient on hover */
-  .ag-theme-quartz .ag-row-pinned:hover {
-    background: linear-gradient(90deg, #eef2ff 0%, #f5f3ff 100%) !important;
-  }
+  /* ── Alternating row stripe — kept subtle ── */
+  .ag-theme-quartz .ag-row-odd { background-color: var(--color-bg-base); }
+  .ag-theme-quartz .ag-row-odd:hover { background-color: var(--color-primary-soft) !important; }
 
-  /* Alternating row stripe */
-  .ag-theme-quartz .ag-row-odd { background-color: #fafbff; }
-  .ag-theme-quartz .ag-row-odd:hover { background-color: #dde5ff !important; }
-
-  /* ── Floating filter row — taller inputs ── */
+  /* ── Floating filter row ── */
   .ag-theme-quartz .ag-floating-filter {
     padding-top:    4px;
     padding-bottom: 4px;
@@ -87,15 +79,15 @@ const GRID_STYLES = `
   .ag-theme-quartz .ag-floating-filter-body input {
     height:        32px !important;
     font-size:     0.82rem !important;
-    padding:       0 8px !important;
-    border-radius: 6px !important;
-    border:        1.5px solid #cbd5e1 !important;
+    padding:       0 10px !important;
+    border-radius: var(--radius-sm) !important;
+    border:        1px solid var(--color-border-strong) !important;
   }
   .ag-theme-quartz .ag-floating-filter-input input:focus,
   .ag-theme-quartz .ag-text-field-input:focus {
-    border-color:  #6366f1 !important;
+    border-color:  var(--color-primary) !important;
     outline:       none !important;
-    box-shadow:    0 0 0 2px #6366f133 !important;
+    box-shadow:    0 0 0 2px var(--color-primary-soft) !important;
   }
 `;
 
