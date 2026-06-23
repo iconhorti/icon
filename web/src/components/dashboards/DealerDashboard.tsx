@@ -6,15 +6,14 @@
  * — Pipeline breakdown: vertical tappable rows with left-color-border
  * — Leaderboard: clean rank/name/count rows; "You" row highlighted in light green
  */
-import { type ComponentType } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Users, Tractor, CheckCircle, UserPlus, ArrowRight,
   TrendingUp, Target, Bell, ChevronRight, Award, IndianRupee,
-  type LucideProps,
 } from 'lucide-react';
 import '../../pages/Dashboard.css';
 import type { AuthUser } from '../../context/AuthContext';
+import DashboardKpiCard from '../DashboardKpiCard';
 
 const formatInr = (n: number | null | undefined): string => {
   if (!n) return '₹0';
@@ -22,35 +21,6 @@ const formatInr = (n: number | null | undefined): string => {
   if (n >= 100000)   return `₹${(n / 100000).toFixed(1)} L`;
   return `₹${Math.round(n || 0).toLocaleString('en-IN')}`;
 };
-
-interface DKpiCardProps {
-  icon: ComponentType<LucideProps>;
-  label: string;
-  value: number | string;
-  sub?: string;
-  color?: string;
-  bg?: string;
-  onClick?: () => void;
-}
-
-// ─── 3 pipeline KPI cards ─────────────────────────────────────────────────────
-const KpiCard = ({ icon: Icon, label, value, sub, color, bg, onClick }: DKpiCardProps) => (
-  <div
-    className="kpi-card"
-    style={{ cursor: onClick ? 'pointer' : 'default', borderLeft: `4px solid ${color}` }}
-    onClick={onClick}
-  >
-    <div style={{ background: bg, borderRadius: 10, padding: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <Icon size={20} color={color} />
-    </div>
-    <div className="kpi-content">
-      <p className="kpi-label">{label}</p>
-      <h3 className="kpi-value" style={{ color }}>{value}</h3>
-      {sub && <p className="kpi-sub">{sub}</p>}
-    </div>
-    {onClick && <ArrowRight size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />}
-  </div>
-);
 
 interface PipelineRowProps {
   label: string;
@@ -263,21 +233,21 @@ const DealerDashboard = ({ stats, error, user }: DealerDashboardProps) => {
 
       {/* ── 3 KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="kpi-grid animate-fade-in animate-delay-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-        <KpiCard
+        <DashboardKpiCard
           icon={UserPlus}    label="In Onboarding"      value={inOnboarding}
-          color="#6366f1"   bg="#eef2ff"
+          tone="pending"
           sub={`Draft: ${breakdown['draft'] ?? 0}  ·  Onboarding: ${breakdown['farmer_onboarding'] ?? 0}  ·  Docs: ${breakdown['document_collection'] ?? 0}`}
           onClick={() => { window.location.href = '/projects?stage=farmer_onboarding'; }}
         />
-        <KpiCard
+        <DashboardKpiCard
           icon={Target}      label="In Construction"    value={inConstruction}
-          color="#ea580c"   bg="#fff7ed"
+          tone="progress"
           sub={`Sites active: M1–M7`}
           onClick={() => { window.location.href = '/projects?stage=m1_foundation'; }}
         />
-        <KpiCard
+        <DashboardKpiCard
           icon={CheckCircle} label="Completed"           value={completed}
-          color="#16a34a"   bg="#f0fdf4"
+          tone="success"
           sub="Subsidy released"
           onClick={() => { window.location.href = '/projects?stage=completed'; }}
         />
