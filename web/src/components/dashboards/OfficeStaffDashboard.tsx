@@ -5,48 +5,14 @@
  *                Financial Queue (amber), Subsidy Queue (blue, alert)
  * — 2-column layout: full pipeline bars left, dark summary + quick actions right
  */
-import { type ComponentType } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FileText, UserPlus, CheckCircle, Clock, AlertTriangle,
   ClipboardCheck, BarChart2, ArrowRight, Tractor, Bell,
-  type LucideProps,
 } from 'lucide-react';
 import '../../pages/Dashboard.css';
 import type { AuthUser } from '../../context/AuthContext';
-
-interface OKpiCardProps {
-  icon: ComponentType<LucideProps>;
-  label: string;
-  value: number | string | null | undefined;
-  sub?: string;
-  color?: string;
-  alert?: boolean;
-  onClick?: (() => void) | undefined;
-}
-
-// ─── KPI card ────────────────────────────────────────────────────────────────
-const KpiCard = ({ icon: Icon, label, value, sub, color = '#6366f1', alert, onClick }: OKpiCardProps) => (
-  <div
-    className={`kpi-card${alert ? ' kpi-card-alert' : ''}`}
-    style={{ cursor: onClick ? 'pointer' : 'default' }}
-    onClick={onClick}
-  >
-    <div style={{
-      background: `${color}18`, borderRadius: 10, padding: '0.5rem',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    }}>
-      <Icon size={20} color={color} />
-    </div>
-    <div className="kpi-content">
-      <p className="kpi-label">{label}</p>
-      <h3 className="kpi-value" style={{ color }}>{value ?? '—'}</h3>
-      {sub && <p className="kpi-sub">{sub}</p>}
-      {onClick && <p style={{ margin: 0, fontSize: '0.68rem', color, marginTop: 2, fontWeight: 600 }}>View →</p>}
-    </div>
-    {alert && <AlertTriangle size={14} style={{ color, flexShrink: 0 }} />}
-  </div>
-);
+import DashboardKpiCard from '../DashboardKpiCard';
 
 interface PipelineBarProps {
   label: string;
@@ -186,27 +152,31 @@ const OfficeStaffDashboard = ({ stats, error, user }: OfficeStaffDashboardProps)
 
       {/* ── 4 KPI Cards ─────────────────────────────────────────────────────── */}
       <div className="kpi-grid animate-fade-in animate-delay-1">
-        <KpiCard
-          icon={UserPlus}       label="Farmer Onboarding"    color="#6366f1"
+        <DashboardKpiCard
+          icon={UserPlus}       label="Farmer Onboarding"
           value={earlyPipeline}
+          tone="pending"
           sub={`Draft: ${draftCount}  ·  Onboarding: ${onboardingCount}  ·  Docs: ${docCollCount}`}
           onClick={() => { window.location.href = '/projects?stage=farmer_onboarding'; }}
         />
-        <KpiCard
-          icon={ClipboardCheck} label="DPR Pipeline"         color="#0891b2"
+        <DashboardKpiCard
+          icon={ClipboardCheck} label="DPR Pipeline"
           value={designPipeline}
+          tone="progress"
           sub={`Site: ${siteVisitCount}  ·  BOQ: ${designCount}  ·  DPR Ready: ${dprReadyCount}`}
           alert={dprReadyCount > 0}
           onClick={() => { window.location.href = '/projects?stage=dpr_ready'; }}
         />
-        <KpiCard
-          icon={CheckCircle}    label="Financial Queue"       color="#d97706"
+        <DashboardKpiCard
+          icon={CheckCircle}    label="Financial Queue"
           value={bankCount + gocCount}
+          tone="financial"
           sub={`Bank: ${bankCount}  ·  GOC: ${gocCount}`}
         />
-        <KpiCard
-          icon={Bell}           label="Subsidy Queue"         color="#0ea5e9"
+        <DashboardKpiCard
+          icon={Bell}           label="Subsidy Queue"
           value={subsidyCount}
+          tone="financial"
           alert={subsidyCount > 0}
           sub={`Claim: ${sb['subsidy_claim'] ?? 0}  ·  Insp: ${sb['agency_inspection'] ?? 0}  ·  Comm: ${sb['committee_meeting'] ?? 0}`}
           onClick={subsidyCount > 0 ? () => { window.location.href = '/projects?stage=agency_inspection'; } : undefined}
