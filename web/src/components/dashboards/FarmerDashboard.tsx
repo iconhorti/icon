@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import '../../pages/Dashboard.css';
 import type { AuthUser } from '../../context/AuthContext';
+import DashboardKpiCard from '../DashboardKpiCard';
 
 interface Stage {
   id: string;
@@ -230,47 +231,27 @@ const FarmerDashboard = ({ stats, error, user }: FarmerDashboardProps) => {
 
       {/* ── 3 Info Cards ─────────────────────────────────────────────────── */}
       <div className="kpi-grid animate-fade-in animate-delay-2" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: '1.25rem' }}>
-        {/* Government Subsidy */}
-        <div className="dashboard-card" style={{ borderLeft: '4px solid #16a34a', textAlign: 'center', padding: '1.25rem' }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
-            <IndianRupee size={20} color="#16a34a" />
-          </div>
-          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 600 }}>Government Subsidy</p>
-          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a', margin: '0 0 0.25rem', fontFamily: 'var(--font-display)' }}>
-            {fmtInr(subsidyAmt)}
-          </h3>
-          <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>
-            {project.total_subsidy_proposed ? 'Proposed subsidy' : 'est. 50% of project cost'}
-          </p>
-        </div>
-
-        {/* Your Investment */}
-        <div className="dashboard-card" style={{ borderLeft: '4px solid #d97706', textAlign: 'center', padding: '1.25rem' }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
-            <Home size={20} color="#d97706" />
-          </div>
-          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 600 }}>Your Investment</p>
-          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#d97706', margin: '0 0 0.25rem', fontFamily: 'var(--font-display)' }}>
-            {fmtInr(yourCost)}
-          </h3>
-          <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>
-            Project cost minus subsidy
-          </p>
-        </div>
-
-        {/* Days Running */}
-        <div className="dashboard-card" style={{ borderLeft: '4px solid #0ea5e9', textAlign: 'center', padding: '1.25rem' }}>
-          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#e0f2fe', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 0.75rem' }}>
-            <Calendar size={20} color="#0ea5e9" />
-          </div>
-          <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.25rem', fontWeight: 600 }}>Days Running</p>
-          <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0ea5e9', margin: '0 0 0.25rem', fontFamily: 'var(--font-display)' }}>
-            {daysRunning !== null ? daysRunning : '—'}
-          </h3>
-          <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>
-            {startDate ? `Started ${new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Start date pending'}
-          </p>
-        </div>
+        <DashboardKpiCard
+          icon={IndianRupee}
+          label="Government Subsidy"
+          value={fmtInr(subsidyAmt)}
+          tone="success"
+          sub={project.total_subsidy_proposed ? 'Proposed subsidy' : 'est. 50% of project cost'}
+        />
+        <DashboardKpiCard
+          icon={Home}
+          label="Your Investment"
+          value={fmtInr(yourCost)}
+          tone="pending"
+          sub="Project cost minus subsidy"
+        />
+        <DashboardKpiCard
+          icon={Calendar}
+          label="Days Running"
+          value={daysRunning !== null ? daysRunning : '—'}
+          tone="progress"
+          sub={startDate ? `Started ${new Date(startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Start date pending'}
+        />
       </div>
 
       {/* ── Main content grid ─────────────────────────────────────────────── */}
