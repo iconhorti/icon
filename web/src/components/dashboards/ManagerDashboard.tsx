@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { getRoleKpis } from '../../api/client';
 import { stageLabel } from './AdminDashboard';
+import DashboardKpiCard from '../DashboardKpiCard';
 import '../../pages/Dashboard.css';
 import type { AuthUser } from '../../context/AuthContext';
 
@@ -33,29 +34,7 @@ const fmt = (n: number | null | undefined): string => {
   return `₹${Math.round(n).toLocaleString('en-IN')}`;
 };
 
-interface MKpiCardProps {
-  icon: ComponentType<LucideProps>;
-  label: string;
-  value: number | string;
-  sub?: string;
-  color?: string;
-  alert?: boolean;
-}
-
 // ─── Shared sub-components ────────────────────────────────────────────────────
-const KpiCard = ({ icon: Icon, label, value, sub, color = 'primary', alert }: MKpiCardProps) => (
-  <div className={`kpi-card${alert ? ' kpi-card-alert' : ''}`}>
-    <div className={`kpi-icon ${color}`}>
-      <Icon size={22} />
-    </div>
-    <div className="kpi-content">
-      <p className="kpi-label">{label}</p>
-      <h3 className="kpi-value">{value}</h3>
-      {sub && <p className="kpi-sub">{sub}</p>}
-    </div>
-  </div>
-);
-
 interface BarRowProps {
   label: string;
   value: number;
@@ -189,19 +168,19 @@ const PmPanel = ({ k, stats: _stats }: { k: any; stats?: any }) => {
 
       {/* KPIs */}
       <div className="kpi-grid animate-fade-in animate-delay-1">
-        <KpiCard icon={Tractor}     label="Assigned Projects"  value={k.total_assigned_projects} color="primary" sub="Total assigned to PMs" />
-        <KpiCard icon={Building2}   label="Active Sites"       value={k.active_construction}     color="warning" sub="M1 – M7 stages" />
-        <KpiCard icon={CheckCircle} label="Completed"         value={k.completed_projects}      color="success" sub="Subsidy released" />
-        <KpiCard icon={MapPin}      label="Site Visits"        value={k.total_site_visits}       color="info"    sub="Total logged" />
-        <KpiCard
+        <DashboardKpiCard icon={Tractor}     label="Assigned Projects"  value={k.total_assigned_projects} tone="neutral"  sub="Total assigned to PMs" />
+        <DashboardKpiCard icon={Building2}   label="Active Sites"       value={k.active_construction}     tone="progress" sub="M1 – M7 stages" />
+        <DashboardKpiCard icon={CheckCircle} label="Completed"         value={k.completed_projects}      tone="success"  sub="Subsidy released" />
+        <DashboardKpiCard icon={MapPin}      label="Site Visits"        value={k.total_site_visits}       tone="progress" sub="Total logged" />
+        <DashboardKpiCard
           icon={Bell}
           label="Follow-ups Pending"
           value={k.follow_up_pending}
-          color={k.follow_up_pending > 0 ? 'danger' : 'success'}
+          tone={k.follow_up_pending > 0 ? 'urgent' : 'success'}
           sub="Requiring action"
           alert={k.follow_up_pending > 0}
         />
-        <KpiCard icon={Target}      label="Districts Covered"  value={k.districts_covered}       color="purple" sub="Geography" />
+        <DashboardKpiCard icon={Target}      label="Districts Covered"  value={k.districts_covered}       tone="neutral" sub="Geography" />
       </div>
 
       {/* Detail cards */}
@@ -298,19 +277,19 @@ const BankPanel = ({ k }: { k: any }) => {
 
       {/* KPIs */}
       <div className="kpi-grid animate-fade-in animate-delay-1">
-        <KpiCard
+        <DashboardKpiCard
           icon={FileWarning}
           label="Awaiting Decision"
           value={k.awaiting_sanction}
-          color={k.awaiting_sanction > 0 ? 'danger' : 'success'}
+          tone={k.awaiting_sanction > 0 ? 'urgent' : 'success'}
           sub="No sanction date yet"
           alert={k.awaiting_sanction > 0}
         />
-        <KpiCard icon={Clock}       label="In Bank Processing"  value={k.pending_sanction}          color="warning" sub="At bank_processing stage" />
-        <KpiCard icon={CheckCircle} label="Loans Approved"      value={k.bank_approved}              color="success" sub="Sanctioned" />
-        <KpiCard icon={Banknote}    label="Total Sanctioned"    value={fmt(k.total_loan_sanctioned)} color="info"    sub="Portfolio value" />
-        <KpiCard icon={Target}      label="Avg Loan per Project" value={fmt(k.avg_loan_amount)}       color="purple"  sub="Sanctioned projects" />
-        <KpiCard icon={TrendingUp}  label="Approval Rate"       value={`${k.approval_rate_pct}%`}    color="success" sub={`${k.bank_approved} of ${k.total_processed}`} />
+        <DashboardKpiCard icon={Clock}       label="In Bank Processing"  value={k.pending_sanction}          tone="financial" sub="At bank_processing stage" />
+        <DashboardKpiCard icon={CheckCircle} label="Loans Approved"      value={k.bank_approved}              tone="success"   sub="Sanctioned" />
+        <DashboardKpiCard icon={Banknote}    label="Total Sanctioned"    value={fmt(k.total_loan_sanctioned)} tone="financial" sub="Portfolio value" />
+        <DashboardKpiCard icon={Target}      label="Avg Loan per Project" value={fmt(k.avg_loan_amount)}       tone="financial" sub="Sanctioned projects" />
+        <DashboardKpiCard icon={TrendingUp}  label="Approval Rate"       value={`${k.approval_rate_pct}%`}    tone="success"   sub={`${k.bank_approved} of ${k.total_processed}`} />
       </div>
 
       {/* Detail cards */}
@@ -400,26 +379,26 @@ const AgencyPanel = ({ k }: { k: any }) => {
 
       {/* KPIs */}
       <div className="kpi-grid animate-fade-in animate-delay-1">
-        <KpiCard
+        <DashboardKpiCard
           icon={AlertTriangle}
           label="Pending Inspections"
           value={k.pending_inspection}
-          color={k.pending_inspection > 0 ? 'warning' : 'success'}
+          tone={k.pending_inspection > 0 ? 'pending' : 'success'}
           sub="Awaiting site inspection"
           alert={k.pending_inspection > 0}
         />
-        <KpiCard icon={ClipboardCheck} label="Inspections Done"     value={k.inspections_done}          color="info"    sub="Completed" />
-        <KpiCard icon={ShieldCheck}    label="Inspections Passed"   value={k.inspections_passed}        color="success" sub="Approved for subsidy" />
-        <KpiCard icon={Target}         label="Pass Rate"            value={`${k.pass_rate_pct}%`}       color="success" sub="Passed / Done" />
-        <KpiCard
+        <DashboardKpiCard icon={ClipboardCheck} label="Inspections Done"     value={k.inspections_done}          tone="progress" sub="Completed" />
+        <DashboardKpiCard icon={ShieldCheck}    label="Inspections Passed"   value={k.inspections_passed}        tone="success"  sub="Approved for subsidy" />
+        <DashboardKpiCard icon={Target}         label="Pass Rate"            value={`${k.pass_rate_pct}%`}       tone="success"  sub="Passed / Done" />
+        <DashboardKpiCard
           icon={CheckSquare}
           label="Committee Pending"
           value={k.committee_pending}
-          color={k.committee_pending > 0 ? 'warning' : 'success'}
+          tone={k.committee_pending > 0 ? 'pending' : 'success'}
           sub="Awaiting meeting"
           alert={k.committee_pending > 0}
         />
-        <KpiCard icon={Banknote}       label="Total Subsidy Released" value={fmt(k.total_released)}     color="success" sub={`${k.subsidy_released_count} projects`} />
+        <DashboardKpiCard icon={Banknote}       label="Total Subsidy Released" value={fmt(k.total_released)}     tone="financial" sub={`${k.subsidy_released_count} projects`} />
       </div>
 
       {/* Detail cards */}
@@ -513,26 +492,26 @@ const AgroPanel = ({ k }: { k: any }) => {
 
       {/* KPIs */}
       <div className="kpi-grid animate-fade-in animate-delay-1">
-        <KpiCard icon={ClipboardCheck} label="Total Consultations"  value={k.total_consultations} color="success" sub="All time" />
-        <KpiCard icon={Tractor}        label="Farms Served"          value={k.active_farms}         color="info"    sub="Unique projects" />
-        <KpiCard icon={Leaf}           label="Plantation Projects"   value={k.plantation_projects}  color="purple"  sub="M7 / Completed" />
-        <KpiCard
+        <DashboardKpiCard icon={ClipboardCheck} label="Total Consultations"  value={k.total_consultations} tone="neutral"  sub="All time" />
+        <DashboardKpiCard icon={Tractor}        label="Farms Served"          value={k.active_farms}         tone="progress" sub="Unique projects" />
+        <DashboardKpiCard icon={Leaf}           label="Plantation Projects"   value={k.plantation_projects}  tone="progress" sub="M7 / Completed" />
+        <DashboardKpiCard
           icon={Bell}
           label="Follow-ups Pending"
           value={k.follow_ups_pending}
-          color={k.follow_ups_pending > 0 ? 'warning' : 'success'}
+          tone={k.follow_ups_pending > 0 ? 'pending' : 'success'}
           sub="Scheduled visits"
           alert={k.follow_ups_pending > 0}
         />
-        <KpiCard
+        <DashboardKpiCard
           icon={AlertTriangle}
           label="Critical Pest Alerts"
           value={k.critical_alerts}
-          color={k.critical_alerts > 0 ? 'danger' : 'success'}
+          tone={k.critical_alerts > 0 ? 'urgent' : 'success'}
           sub="Unresolved"
           alert={k.critical_alerts > 0}
         />
-        <KpiCard icon={CheckCircle}    label="Alerts Resolved"       value={k.resolved_alerts}      color="success" sub="Closed" />
+        <DashboardKpiCard icon={CheckCircle}    label="Alerts Resolved"       value={k.resolved_alerts}      tone="success" sub="Closed" />
       </div>
 
       {/* Detail cards */}
@@ -666,17 +645,17 @@ const ContractorPanel = ({ stats, roleKpis, role }: { stats: any; roleKpis: any;
       )}
 
       <div className="kpi-grid animate-fade-in animate-delay-1">
-        <KpiCard
+        <DashboardKpiCard
           icon={cfg.IconComp}
           label="Projects in My Scope"
           value={myStageCount}
-          color="warning"
+          tone="progress"
           sub={cfg.focus}
           alert={myStageCount > 0}
         />
-        <KpiCard icon={CheckCircle} label="Projects Completed"  value={completed}              color="success" sub="Across all stages" />
-        <KpiCard icon={Tractor}     label="Total in System"     value={stats?.total_projects ?? 0} color="primary" sub="All projects" />
-        <KpiCard icon={Wrench}      label="My Scope"            value={cfg.stages.length}      color="info"    sub={`stage${cfg.stages.length > 1 ? 's' : ''} tracked`} />
+        <DashboardKpiCard icon={CheckCircle} label="Projects Completed"  value={completed}              tone="success" sub="Across all stages" />
+        <DashboardKpiCard icon={Tractor}     label="Total in System"     value={stats?.total_projects ?? 0} tone="neutral" sub="All projects" />
+        <DashboardKpiCard icon={Wrench}      label="My Scope"            value={cfg.stages.length}      tone="neutral" sub={`stage${cfg.stages.length > 1 ? 's' : ''} tracked`} />
       </div>
 
       <div className="dashboard-grid grid-2">
