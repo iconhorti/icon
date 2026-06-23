@@ -1,4 +1,5 @@
 import { ArrowLeft, Calculator, Save } from 'lucide-react';
+import Badge from '../Badge';
 
 interface ProjectFormComponentsProps {
   allLineItems: any[];
@@ -58,7 +59,7 @@ export default function ProjectFormComponents({
                             style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: 'var(--color-primary)' }}
                           />
                         </td>
-                        <td><span className="badge">{item._type}</span></td>
+                        <td><Badge tone="neutral">{item._type}</Badge></td>
                         <td style={{ fontWeight: 500 }}>{item.name}</td>
                         <td>{item._unit}</td>
                         <td>{fmt(item._rate)}</td>
