@@ -7,16 +7,17 @@
  *            Staff Counts, Quick Actions, clickable KPI drilldown.
  * ─ Fixed:   drilldown now passes stage filter to backend query.
  */
-import { useState, type ComponentType } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Tractor, Landmark, CheckCircle, Clock, Users, TrendingUp,
   BarChart2, AlertTriangle, ArrowRight, Building2,
-  FileText, Hammer, X, type LucideProps,
+  FileText, Hammer, X,
 } from 'lucide-react';
 import { getProjects } from '../../api/client';
 import '../../pages/Dashboard.css';
 import type { AuthUser } from '../../context/AuthContext';
+import DashboardKpiCard from '../DashboardKpiCard';
 
 // ─── Stage label map — slug-based only ───────────────────────────────────────
 export const STAGE_LABELS: Record<string, string> = {
@@ -95,37 +96,6 @@ const formatCrore = (n: number | null | undefined): string => {
   if (n >= 100000)   return `₹${(n / 100000).toFixed(1)} L`;
   return `₹${Math.round(n).toLocaleString('en-IN')}`;
 };
-
-interface KpiCardProps {
-  icon: ComponentType<LucideProps>;
-  label: string;
-  value: number | string;
-  sub?: string;
-  color?: string;
-  alert?: boolean;
-  onClick?: () => void;
-}
-
-// ─── KPI Card ─────────────────────────────────────────────────────────────────
-const KpiCard = ({ icon: Icon, label, value, sub, color = 'primary', alert, onClick }: KpiCardProps) => (
-  <div
-    className={`kpi-card ${color}${alert ? ' kpi-card-alert' : ''}${onClick ? ' cursor-pointer' : ''}`}
-    onClick={onClick}
-    style={onClick ? { cursor: 'pointer' } : {}}
-  >
-    <div className={`kpi-icon ${color}`}>
-      <Icon size={24} />
-    </div>
-    <div className="kpi-content">
-      <p className="kpi-label">{label}</p>
-      <h3 className="kpi-value">{value}</h3>
-      {sub && <p className="kpi-sub">{sub}</p>}
-    </div>
-    {onClick && (
-      <ArrowRight size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
-    )}
-  </div>
-);
 
 interface TeamRole {
   key: string;
@@ -248,36 +218,36 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
 
       {/* ── KPI Row — 4 pipeline phases ────────────────────────────────────── */}
       <div className="kpi-grid animate-fade-in animate-delay-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        <KpiCard
+        <DashboardKpiCard
           icon={FileText}
           label="In Planning"
           value={planningCount}
-          color="primary"
+          tone="pending"
           sub={`Onboarding: ${stageBreakdown['farmer_onboarding'] || 0}  ·  Docs: ${stageBreakdown['document_collection'] || 0}`}
           onClick={() => openDrillDown('Projects In Planning', STAGE_GROUPS[0].keys)}
         />
-        <KpiCard
+        <DashboardKpiCard
           icon={Hammer}
           label="Under Construction"
           value={constructionCount}
-          color="warning"
+          tone="progress"
           sub={`Site/Design/DPR: ${(stageBreakdown['site_visit']||0)+(stageBreakdown['design_boq']||0)+(stageBreakdown['dpr_ready']||0)}  ·  M1–M7: ${['m1_foundation','m2_structure_erection','m3_covering_material','m4_trellising','m5_drip_fitting','m6_bed_preparation','m7_plantation'].reduce((s,k)=>s+(stageBreakdown[k]||0),0)}`}
           onClick={() => openDrillDown('Projects Under Construction', STAGE_GROUPS[2].keys)}
         />
-        <KpiCard
+        <DashboardKpiCard
           icon={Clock}
           label="Subsidy Processing"
           value={subsidyCount}
-          color="info"
+          tone="financial"
           sub={`Claim: ${stageBreakdown['subsidy_claim']||0}  ·  Insp: ${stageBreakdown['agency_inspection']||0}  ·  Comm: ${stageBreakdown['committee_meeting']||0}`}
           alert={subsidyCount > 0}
           onClick={() => openDrillDown('Subsidy Processing', STAGE_GROUPS[3].keys)}
         />
-        <KpiCard
+        <DashboardKpiCard
           icon={CheckCircle}
           label="Released / Completed"
           value={releasedCount}
-          color="success"
+          tone="success"
           sub={`Released: ${stageBreakdown['subsidy_released']||0}  ·  Done: ${stageBreakdown['completed']||0}`}
           onClick={() => openDrillDown('Completed & Subsidy Released', STAGE_GROUPS[4].keys)}
         />
@@ -286,27 +256,27 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
       {/* ── Bank / GOC / Erection secondary KPIs ─────────────────────────── */}
       {(kpis.bank_wip != null || kpis.goc_applied != null) && (
         <div className="kpi-grid animate-fade-in animate-delay-1" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-          <KpiCard
+          <DashboardKpiCard
             icon={Landmark}
             label="Bank Pipeline"
             value={(kpis.bank_wip || 0) + (kpis.bank_sanctioned || 0)}
-            color="warning"
+            tone="financial"
             sub={`WIP: ${kpis.bank_wip || 0}  ·  Sanctioned: ${kpis.bank_sanctioned || 0}`}
             onClick={() => openDrillDown('Bank Pipeline', ['bank_processing'])}
           />
-          <KpiCard
+          <DashboardKpiCard
             icon={Building2}
             label="GOC Pipeline"
             value={(kpis.goc_applied || 0) + (kpis.goc_approved || 0)}
-            color="info"
+            tone="pending"
             sub={`Applied: ${kpis.goc_applied || 0}  ·  Approved: ${kpis.goc_approved || 0}`}
             onClick={() => openDrillDown('GOC Pipeline', ['goc_registration'])}
           />
-          <KpiCard
+          <DashboardKpiCard
             icon={Hammer}
             label="Erection Progress"
             value={(kpis.erection_wip || 0) + (kpis.erection_completed || 0)}
-            color="primary"
+            tone="progress"
             sub={`WIP (M1–M7): ${kpis.erection_wip || 0}  ·  Done: ${kpis.erection_completed || 0}`}
             onClick={() => openDrillDown('Erection Progress', STAGE_GROUPS[2].keys)}
           />
