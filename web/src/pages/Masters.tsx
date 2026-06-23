@@ -22,6 +22,7 @@ import {
   createVillage, updateVillage, deleteVillage,
 } from '../api/client';
 import AgTable from '../components/AgTable';
+import Badge from '../components/Badge';
 import type { ColDef } from 'ag-grid-community';
 import { useToast } from '../context/ToastContext';
 
@@ -302,8 +303,8 @@ const Masters = () => {
 
   // ── Table renderers ─────────────────────────────────────────────────────────
   const StatusBadge = ({ val }: { val: any }) => val
-    ? <span className="badge badge-success">Active</span>
-    : <span className="badge badge-danger">Inactive</span>;
+    ? <Badge tone="success">Active</Badge>
+    : <Badge tone="danger">Inactive</Badge>;
 
   const renderTable = () => {
     if (loading) return <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading…</div>;
@@ -333,7 +334,7 @@ const Masters = () => {
       case 'components':
         colDefs = [
           { headerName: t('col.id'), field: 'id', width: 70 },
-          { headerName: t('col.type'), field: 'component_type', width: 120, cellRenderer: (p: any) => <span className="badge">{p.value}</span> },
+          { headerName: t('col.type'), field: 'component_type', width: 120, cellRenderer: (p: any) => <Badge tone="neutral">{p.value}</Badge> },
           { headerName: t('col.name'), field: 'name', minWidth: 200 },
           { headerName: 'Category', field: 'category' },
           { headerName: 'Unit', field: 'unit', width: 90 },
@@ -349,7 +350,7 @@ const Masters = () => {
         colDefs = [
           { headerName: t('col.id'), field: 'id', width: 70 },
           { headerName: t('col.name'), field: 'name', minWidth: 200 },
-          { headerName: 'Multiplier', field: 'multiplier', width: 120, cellRenderer: (p: any) => <span className="badge badge-info">{p.value}×</span> },
+          { headerName: 'Multiplier', field: 'multiplier', width: 120, cellRenderer: (p: any) => <Badge tone="financial">{p.value}×</Badge> },
           { headerName: 'Description', field: 'description', flex: 2 },
           ...statusCol, ...actionCol
         ];
