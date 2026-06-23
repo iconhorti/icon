@@ -158,13 +158,6 @@ const CONTRACTOR_ROLES = [
   { value: 'plantation_contractor',    label: 'Plantation' },
 ];
 
-const ROLE_COLORS = {
-  structure_contractor:  'badge-info',
-  drip_contractor:        'badge-warning',
-  bed_contractor:        'badge-success',
-  plantation_contractor:  'badge-secondary',
-};
-
 const EMPTY_FORM = {
   first_name: '', last_name: '', role: 'structure_contractor',
   phone_primary: '', email: '', firm_name: '',
@@ -397,7 +390,7 @@ const ContractorsManagement = () => {
                     );
                   },
                 },
-                { headerName: t('col.type'), field: 'role', cellRenderer: (p: any) => <span className={`badge ${(ROLE_COLORS as Record<string,string>)[p.value] || 'badge-secondary'}`}>{CONTRACTOR_ROLES.find(r => r.value === p.value)?.label || p.value}</span> },
+                { headerName: t('col.type'), field: 'role', cellRenderer: (p: any) => <Badge tone="neutral">{CONTRACTOR_ROLES.find(r => r.value === p.value)?.label || p.value}</Badge> },
                 { headerName: t('col.skills'), valueGetter: (p: any) => (getContractorSkillNames(p.data.id) || []).join(', ') || '—' },
                 { headerName: t('col.phone'), field: 'phone_primary' },
                 { headerName: t('col.firm'), field: 'firm_name', valueFormatter: (p: any) => p.value || '—' },

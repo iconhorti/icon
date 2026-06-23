@@ -14,7 +14,7 @@ import { RefreshCw, Edit2, Ban, CheckCircle, Phone, X, Save, Plus,
 import AgTable from '../components/AgTable';
 import type { ColDef } from 'ag-grid-community';
 import { useToast } from '../context/ToastContext';
-import Badge from '../components/Badge';
+import Badge, { type BadgeTone } from '../components/Badge';
 import Avatar from '../components/Avatar';
 
 // ─── Stage labels ────────────────────────────────────────────────────────────
@@ -579,11 +579,12 @@ const STAFF_ROLES = [
   { value: 'agency_officer',  label: 'Agency Officer' },
 ];
 
-const ROLE_COLORS: Record<string, string> = {
-  office_staff:    'badge-warning',
-  project_manager: 'badge-info',
-  bank_officer:    'badge-warning',
-  agency_officer:  'badge-info',
+const roleTone = (role: string): BadgeTone => {
+  if (role === 'admin' || role === 'owner') return 'danger';
+  if (role === 'dealer') return 'financial';
+  if (role === 'farmer') return 'success';
+  if (['structure_contractor', 'drip_contractor', 'bed_contractor', 'plantation_contractor'].includes(role)) return 'neutral';
+  return 'progress'; // office_staff, project_manager, bank_officer, agency_officer, agronomist
 };
 
 const ROLE_META: Record<string, { title: string; sub: string }> = {
@@ -805,7 +806,7 @@ const OfficeStaff = () => {
                   },
                 },
                 { headerName: t('col.role'), field: 'role', cellRenderer: (p: any) =>
-                    <span className={`badge ${ROLE_COLORS[p.value] || 'badge-secondary'}`}>{p.value.replace(/_/g,' ')}</span> },
+                    <Badge tone={roleTone(p.value)}>{p.value.replace(/_/g,' ')}</Badge> },
                 { headerName: t('col.phone'),       field: 'phone_primary' },
                 { headerName: t('col.email'),       field: 'email',       valueFormatter: (p: any) => p.value || '—' },
                 { headerName: t('col.designation'), field: 'designation', valueFormatter: (p: any) => p.value || '—' },

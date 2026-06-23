@@ -9,16 +9,15 @@ import { RefreshCw, Edit2, Ban, CheckCircle, X, Save, Plus, Eye, EyeOff } from '
 import AgTable from '../components/AgTable';
 import type { ColDef } from 'ag-grid-community';
 import { useToast } from '../context/ToastContext';
-import Badge from '../components/Badge';
+import Badge, { type BadgeTone } from '../components/Badge';
 import Avatar from '../components/Avatar';
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: 'badge-danger', owner: 'badge-danger', dealer: 'badge-info',
-  farmer: 'badge-success', office_staff: 'badge-warning',
-  project_manager: 'badge-warning', bank_officer: 'badge-warning',
-  agency_officer: 'badge-info', agronomist: 'badge-info',
-  structure_contractor: 'badge-secondary', drip_contractor: 'badge-secondary',
-  bed_contractor: 'badge-secondary', plantation_contractor: 'badge-secondary',
+const roleTone = (role: string): BadgeTone => {
+  if (role === 'admin' || role === 'owner') return 'danger';
+  if (role === 'dealer') return 'financial';
+  if (role === 'farmer') return 'success';
+  if (['structure_contractor', 'drip_contractor', 'bed_contractor', 'plantation_contractor'].includes(role)) return 'neutral';
+  return 'progress'; // office_staff, project_manager, bank_officer, agency_officer, agronomist
 };
 
 const ROLE_OPTIONS = [
@@ -194,7 +193,7 @@ const UserManagement = () => {
                     );
                   },
                 },
-                { headerName: t('col.role'), field: 'role', cellRenderer: (p: any) => <span className={`badge ${ROLE_COLORS[p.value] || 'badge-secondary'}`}>{p.value.replace(/_/g,' ')}</span> },
+                { headerName: t('col.role'), field: 'role', cellRenderer: (p: any) => <Badge tone={roleTone(p.value)}>{p.value.replace(/_/g,' ')}</Badge> },
                 { headerName: t('col.phone'), field: 'phone_primary' },
                 { headerName: t('col.district'), field: 'district', valueFormatter: (p: any) => p.value || '—' },
                 { headerName: t('col.status'), field: 'is_active', maxWidth: 120, cellRenderer: (p: any) => p.value
