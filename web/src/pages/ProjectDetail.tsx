@@ -1,10 +1,9 @@
-import { useState, useEffect, useCallback, Fragment } from 'react';
+import { useState, Fragment } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useParams, Link } from 'react-router-dom';
-import {
-  getProjectById, updateProjectStage,
-} from '../api/client';
+import { updateProjectStage } from '../api/client';
+import { useProjectDetail } from '../hooks/useProjects';
 import {
   ArrowLeft, MapPin, CheckCircle, Clock, Building2, BadgeIndianRupee,
   User, FileText, Loader2, ChevronRight,
@@ -20,6 +19,7 @@ import TeamAssignmentCard from '../components/ProjectDetail/TeamAssignmentCard';
 import StageActionPanel from '../components/ProjectDetail/StageActionPanel';
 import ActivityTimeline from '../components/ProjectDetail/ActivityTimeline';
 import RequiredDocsChecklist from '../components/ProjectDetail/RequiredDocsChecklist';
+import Badge from '../components/Badge';
 
 // ============================================================
 // ProjectDetail Component
@@ -33,25 +33,13 @@ const ProjectDetail = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [project,  setProject]  = useState<any>(null);
-  const [loading,  setLoading]  = useState<boolean>(true);
-  const [error,    setError]    = useState<string | null>(null);
   const [updating, setUpdating] = useState<boolean>(false);
 
-  const fetchProject = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await getProjectById(id as string);
-      setProject(data);
-      setError(null);
-    } catch (err) {
-      setError('Project not found or connection error.');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => { fetchProject(); }, [fetchProject]);
+  const { data: project, isLoading: loading, isError, refetch } = useProjectDetail(id);
+  const error = isError ? 'Project not found or connection error.' : null;
+  // Kept as a stable name/signature — TeamAssignmentCard, ProjectItemsCard, and
+  // StageActionPanel all take a `refresh`/`onSaved` callback with this shape.
+  const fetchProject = async () => { await refetch(); };
 
   const handleAdvanceStage = async () => {
     if (!project) return;
@@ -154,7 +142,7 @@ const ProjectDetail = () => {
             </p>
           </div>
           <div className="status-badge-large" style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <span className="badge badge-success">Active</span>
+            <Badge tone="success">Active</Badge>
             {(role === 'admin' || role === 'owner' || role === 'office_staff') && (
               <Link to={`/projects/${project.id}/edit`} className="btn btn-outline" style={{ display: 'flex', gap: '0.5rem' }}>
                 <FileText size={16} /> Edit
