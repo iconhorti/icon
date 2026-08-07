@@ -60,7 +60,15 @@ const StageActionPanel = ({ stageId, project, role, onSaved }: StageActionPanelP
     try {
       // Send the concurrency token loaded with this project so a stale write is
       // rejected (409) rather than clobbering another user's edit.
-      await updateProjectFields(project.id, { ...form, ...versionOf(project) } as any);
+      const result = await updateProjectFields(project.id, { ...form, ...versionOf(project) } as any);
+      // Safety net: the backend whitelists which fields each role may PATCH and
+      // silently drops anything outside it (HTTP 200, applied_fields: []) rather
+      // than erroring. If nothing was actually written, don't lie and say "Saved!".
+      const appliedCount = Array.isArray(result?.applied_fields) ? result.applied_fields.length : null;
+      if (appliedCount === 0) {
+        toast('Nothing was saved — none of these fields are editable for your role. Contact an admin if this looks wrong.', 'error');
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
       onSaved?.();

@@ -303,7 +303,11 @@ const ProjectForm = () => {
         land_area: parseFloat(form.land_area), land_unit: form.land_unit,
         subsidy_agency_id: form.subsidy_agency_id ? parseInt(form.subsidy_agency_id) : null,
         bank_branch_id: form.bank_branch_id ? parseInt(form.bank_branch_id) : null,
-        estimated_project_cost: form.estimated_total_cost ? parseFloat(form.estimated_total_cost) : null,
+        // NOTE: backend field names are total_project_cost / total_eligible_project_cost —
+        // "estimated_project_cost" doesn't exist on ProjectCreate and was being silently
+        // dropped. See AUDIT_FIXES.md.
+        total_project_cost: form.estimated_total_cost ? parseFloat(form.estimated_total_cost) : null,
+        total_eligible_project_cost: form.eligible_project_cost ? parseFloat(form.eligible_project_cost) : null,
         project_stage: userRole === 'dealer' ? 'draft' : 'farmer_onboarding',
         company_id: 1,
         created_by: currentUser?.id,

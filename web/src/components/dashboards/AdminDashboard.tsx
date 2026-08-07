@@ -1,19 +1,19 @@
 /**
- * Admin / Owner / Office Staff Dashboard  v2
- * ─ Removed: fake Trend chart, fake Velocity chart, fake Monthly Pipeline chart,
- *            fake System Health card, hardcoded perf bars in Staff card.
- * ─ Kept:    Stage Pipeline (real data), Regional Concentration (real),
- *            Areawise Distribution (real), Financial Overview (real),
- *            Staff Counts, Quick Actions, clickable KPI drilldown.
- * ─ Fixed:   drilldown now passes stage filter to backend query.
+ * Admin / Owner Dashboard  v3 (P1 redesign)
+ * ─ Situation banner + decision KPIs (subsidy realization target ≥70%)
+ * ─ Stage pipeline + monthly pipeline_stack + regional concentration (all live)
+ * ─ No heuristic trend/velocity charts
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Tractor, Landmark, CheckCircle, Clock, Users, TrendingUp,
   BarChart2, AlertTriangle, ArrowRight, Building2,
-  FileText, Hammer, X,
+  FileText, Hammer, X, Percent,
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
 import { getProjects } from '../../api/client';
 import '../../pages/Dashboard.css';
 import type { AuthUser } from '../../context/AuthContext';
@@ -119,6 +119,8 @@ interface AdminDashboardProps {
   stats: any;
   error?: string | null;
   user: AuthUser;
+  roleKpis?: any;
+  kpisLoading?: boolean;
 }
 
 // ─── AdminDashboard ───────────────────────────────────────────────────────────
@@ -127,6 +129,9 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
   const stageBreakdown = stats?.stage_breakdown ?? {};
   const adminMetrics   = stats?.admin_metrics  || {};
   const kpis           = adminMetrics.kpis        || {};
+  const pipelineStack: any[] = adminMetrics.pipeline_stack ?? [];
+  const regionData: { name: string; count: number }[] = adminMetrics.region_data ?? [];
+  const areaData: { name: string; count: number }[] = adminMetrics.area_data ?? [];
 
   // Grouped stage counts
   const sumStages = (keys: string[]): number => keys.reduce((s, k) => s + (stageBreakdown[k] || 0), 0);
@@ -134,6 +139,21 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
   const constructionCount = sumStages(STAGE_GROUPS[2].keys);
   const subsidyCount      = sumStages(STAGE_GROUPS[3].keys);
   const releasedCount     = sumStages(STAGE_GROUPS[4].keys);
+
+  const proposed  = Number(stats?.total_subsidy_proposed ?? 0);
+  const received  = Number(stats?.total_subsidy_received ?? 0);
+  const realizationPct =
+    proposed > 0 ? Math.round((received / proposed) * 1000) / 10 : null;
+  const realizationSeverity =
+    realizationPct == null ? undefined
+      : realizationPct >= 70 ? 'ok' as const
+      : realizationPct >= 50 ? 'warn' as const
+      : 'breach' as const;
+
+  // Top bottleneck stage by count (honest: count, not dwell — aging is P2)
+  const bottleneck = (Object.entries(stageBreakdown) as [string, number][])
+    .filter(([k]) => !['completed', 'subsidy_released', 'draft'].includes(k))
+    .sort((a, b) => b[1] - a[1])[0];
 
   const roleIcon = user.role === 'owner' ? '👑' : user.role === 'admin' ? '🛡️' : '📋';
 
@@ -204,20 +224,33 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
           <span className="alert-content">{error}</span>
         </div>
       )}
-      {subsidyCount > 0 && (
-        <div className="alert-banner warning animate-fade-in">
-          <AlertTriangle size={18} />
-          <span className="alert-content">
-            <strong>{subsidyCount}</strong> project{subsidyCount > 1 ? 's' : ''} pending subsidy inspection or committee meeting
-          </span>
-          <Link to="/projects?stage=agency_inspection" className="btn btn-sm btn-outline alert-action">
-            Review →
+
+      {/* Band 1 — Situation banner */}
+      {bottleneck && bottleneck[1] > 0 && (
+        <div className={`situation-banner ${subsidyCount > 10 ? 'danger' : ''} animate-fade-in`}>
+          <AlertTriangle size={18} style={{ color: subsidyCount > 10 ? '#ef4444' : '#f59e0b', flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <strong>Largest queue:</strong>{' '}
+            {stageLabel(bottleneck[0])} — <strong>{bottleneck[1]}</strong> projects
+            {subsidyCount > 0 && (
+              <> · <strong>{subsidyCount}</strong> in subsidy stages</>
+            )}
+            {realizationPct != null && (
+              <> · Subsidy realization <strong>{realizationPct}%</strong> (target ≥70%)</>
+            )}
+          </div>
+          <Link
+            to={`/projects?stage=${bottleneck[0]}`}
+            className="btn btn-sm btn-outline"
+            style={{ flexShrink: 0 }}
+          >
+            Open queue →
           </Link>
         </div>
       )}
 
-      {/* ── KPI Row — 4 pipeline phases ────────────────────────────────────── */}
-      <div className="kpi-grid animate-fade-in animate-delay-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      {/* ── KPI Row — pipeline + realization ──────────────────────────────── */}
+      <div className="kpi-grid animate-fade-in animate-delay-1" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
         <DashboardKpiCard
           icon={FileText}
           label="In Planning"
@@ -241,6 +274,7 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
           tone="financial"
           sub={`Claim: ${stageBreakdown['subsidy_claim']||0}  ·  Insp: ${stageBreakdown['agency_inspection']||0}  ·  Comm: ${stageBreakdown['committee_meeting']||0}`}
           alert={subsidyCount > 0}
+          severity={subsidyCount > 10 ? 'breach' : subsidyCount > 0 ? 'warn' : 'ok'}
           onClick={() => openDrillDown('Subsidy Processing', STAGE_GROUPS[3].keys)}
         />
         <DashboardKpiCard
@@ -250,6 +284,15 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
           tone="success"
           sub={`Released: ${stageBreakdown['subsidy_released']||0}  ·  Done: ${stageBreakdown['completed']||0}`}
           onClick={() => openDrillDown('Completed & Subsidy Released', STAGE_GROUPS[4].keys)}
+        />
+        <DashboardKpiCard
+          icon={Percent}
+          label="Subsidy Realization"
+          value={realizationPct != null ? `${realizationPct}%` : '—'}
+          tone={realizationSeverity === 'breach' ? 'danger' : realizationSeverity === 'warn' ? 'pending' : 'success'}
+          target={70}
+          severity={realizationSeverity}
+          sub={proposed > 0 ? `${formatCrore(received)} of ${formatCrore(proposed)}` : 'No proposed subsidy yet'}
         />
       </div>
 
@@ -346,6 +389,34 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
             </div>
           </div>
 
+          {/* Monthly pipeline stack — real admin_metrics.pipeline_stack ─── */}
+          {pipelineStack.length > 0 && (
+            <div className="dashboard-card animate-fade-in animate-delay-3">
+              <div className="card-header">
+                <h3 className="card-title"><TrendingUp size={17} /> Monthly Pipeline Mix</h3>
+                <Link to="/reports" className="btn btn-sm btn-outline">Full reports →</Link>
+              </div>
+              <div className="card-body" style={{ height: 260 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={pipelineStack} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                    <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <Tooltip />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Bar dataKey="Sourcing"  stackId="a" fill="#6366f1" />
+                    <Bar dataKey="DPR"       stackId="a" fill="#0ea5e9" />
+                    <Bar dataKey="Banking"   stackId="a" fill="#f59e0b" />
+                    <Bar dataKey="GOC"       stackId="a" fill="#a78bfa" />
+                    <Bar dataKey="Erection"  stackId="a" fill="#ea580c" />
+                    <Bar dataKey="Subsidy"   stackId="a" fill="#38bdf8" />
+                    <Bar dataKey="Completed" stackId="a" fill="#22c55e" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* Right column */}
@@ -381,6 +452,57 @@ const AdminDashboard = ({ stats, error, user }: AdminDashboardProps) => {
               </div>
             </div>
           </div>
+
+          {/* Regional concentration — real admin_metrics.region_data ─────── */}
+          {regionData.length > 0 && (
+            <div className="dashboard-card animate-fade-in animate-delay-2">
+              <div className="card-header">
+                <h3 className="card-title"><Building2 size={17} /> Regional Concentration</h3>
+              </div>
+              <div className="card-body">
+                {(() => {
+                  const total = regionData.reduce((s, r) => s + r.count, 0) || 1;
+                  const top3 = [...regionData].sort((a, b) => b.count - a.count).slice(0, 5);
+                  const top3Pct = Math.round(
+                    (top3.slice(0, 3).reduce((s, r) => s + r.count, 0) / total) * 100,
+                  );
+                  return (
+                    <>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
+                        Top 3 districts: <strong style={{ color: top3Pct > 60 ? '#dc2626' : '#16a34a' }}>{top3Pct}%</strong>
+                        {' '}of projects {top3Pct > 60 ? '(high concentration)' : '(diversified)'}
+                      </p>
+                      <div className="bar-chart">
+                        {top3.map((r) => (
+                          <div key={r.name} className="bar-item">
+                            <div className="bar-header">
+                              <span className="bar-label">{r.name}</span>
+                              <span className="bar-value">{r.count}</span>
+                            </div>
+                            <div className="bar-track">
+                              <div
+                                className="bar-fill"
+                                style={{
+                                  width: `${(r.count / top3[0].count) * 100}%`,
+                                  background: '#6366f1',
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {areaData.length > 0 && (
+                        <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.75rem' }}>
+                          Structure types:{' '}
+                          {areaData.map((a) => `${a.name} (${a.count})`).join(' · ')}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* Staff Overview — real role_counts, no fake perf bars ─────────── */}
           <div className="dashboard-card animate-fade-in animate-delay-3">

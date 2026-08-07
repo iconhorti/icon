@@ -198,14 +198,17 @@ const ProjectList = () => {
 
   const effectiveStage = pillFilter === 'all' ? '' : pillFilter;
 
-  // TODO: migrate to server-side pagination when project count exceeds ~500
-  const params: Record<string, any> = { limit: 500, ...(effectiveStage ? { stage: effectiveStage } : {}) };
-  const { data: projects = [], isLoading: loading, refetch } = useProjects(params);
+  // TODO: fully wire skip/limit to AG Grid if we switch to server-side row model, 
+  // currently we fetch a large limit and let AG Grid client-paginate the chunk.
+  const params: Record<string, any> = { limit: 500, skip: 0, ...(effectiveStage ? { stage: effectiveStage } : {}) };
+  const { data: projectsData, isLoading: loading, refetch } = useProjects(params);
   const fetchProjects = () => { refetch(); };
 
-  // KPI counts — computed client-side from the currently-loaded (unfiltered-by-pill) page;
-  // re-fetched whenever the pill filter changes since `params` above scopes the query itself.
-  const total = projects.length;
+  // Fallback for types
+  const projects = projectsData?.items || (Array.isArray(projectsData) ? projectsData : []);
+  
+  // KPI counts — computed client-side from the currently-loaded page chunk
+  const total = projectsData?.total ?? projects.length;
   const completedCount = projects.filter((p: any) => p.project_stage?.includes('completed')).length;
   const bankCount = projects.filter((p: any) => p.project_stage?.includes('bank')).length;
   const constructionCount = projects.filter((p: any) => /^m\d/.test(p.project_stage || '')).length;

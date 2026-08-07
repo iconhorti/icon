@@ -100,7 +100,7 @@ export const getRoleKpis = async (role: string) => {
 
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
-export const getProjects = async (params: Params = {}): Promise<ProjectListItem[]> => {
+export const getProjects = async (params: Params = {}): Promise<{ items: ProjectListItem[]; total: number }> => {
   const response = await apiClient.get(`/projects/${toQuery(params)}`);
   return response.data;
 };
@@ -421,6 +421,14 @@ export const deleteBankBranch = async (id: number | string) => {
   return response.data;
 };
 
+
+// ─── Subsidy ──────────────────────────────────────────────────────────────────
+// Backend: GET /subsidy/rates → { structures, crops, components, area_types }
+// (routers/subsidy.py get_rates). Consumed by the SubsidyCalculator page.
+export const getSubsidyRates = async (): Promise<any> => {
+  const response = await apiClient.get('/subsidy/rates');
+  return response.data;
+};
 
 // ─── Reference Data ───────────────────────────────────────────────────────────
 export const getAreaTypes = async (all = false): Promise<AreaType[]> => {

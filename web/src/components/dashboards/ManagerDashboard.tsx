@@ -11,7 +11,7 @@
  *  4. Detail cards / charts relevant to their work
  *  5. Quick-action links that deep-link into relevant filtered views
  */
-import { useState, useEffect, type ComponentType, type ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Tractor, CheckCircle, Clock, MapPin, Banknote, AlertTriangle,
@@ -20,7 +20,6 @@ import {
   FileWarning, ChevronRight, Hammer, Droplets, Sprout, TreePine,
   type LucideProps,
 } from 'lucide-react';
-import { getRoleKpis } from '../../api/client';
 import { stageLabel } from './AdminDashboard';
 import DashboardKpiCard from '../DashboardKpiCard';
 import '../../pages/Dashboard.css';
@@ -284,12 +283,21 @@ const BankPanel = ({ k }: { k: any }) => {
           tone={k.awaiting_sanction > 0 ? 'urgent' : 'success'}
           sub="No sanction date yet"
           alert={k.awaiting_sanction > 0}
+          severity={k.awaiting_sanction > 5 ? 'breach' : k.awaiting_sanction > 0 ? 'warn' : 'ok'}
         />
         <DashboardKpiCard icon={Clock}       label="In Bank Processing"  value={k.pending_sanction}          tone="financial" sub="At bank_processing stage" />
         <DashboardKpiCard icon={CheckCircle} label="Loans Approved"      value={k.bank_approved}              tone="success"   sub="Sanctioned" />
         <DashboardKpiCard icon={Banknote}    label="Total Sanctioned"    value={fmt(k.total_loan_sanctioned)} tone="financial" sub="Portfolio value" />
         <DashboardKpiCard icon={Target}      label="Avg Loan per Project" value={fmt(k.avg_loan_amount)}       tone="financial" sub="Sanctioned projects" />
-        <DashboardKpiCard icon={TrendingUp}  label="Approval Rate"       value={`${k.approval_rate_pct}%`}    tone="success"   sub={`${k.bank_approved} of ${k.total_processed}`} />
+        <DashboardKpiCard
+          icon={TrendingUp}
+          label="Approval Rate"
+          value={`${k.approval_rate_pct ?? 0}%`}
+          tone={(k.approval_rate_pct ?? 0) >= 80 ? 'success' : 'pending'}
+          target={80}
+          severity={(k.approval_rate_pct ?? 0) >= 80 ? 'ok' : (k.approval_rate_pct ?? 0) >= 60 ? 'warn' : 'breach'}
+          sub={`${k.bank_approved ?? 0} of ${k.total_processed ?? 0}`}
+        />
       </div>
 
       {/* Detail cards */}
@@ -771,34 +779,20 @@ const ROLE_CONFIG: Record<string, RoleConfig> = {
   plantation_contractor: { icon: '🪴', label: 'Plantation Contractor Dashboard',  focus: 'Seedling Plantation (M7)',              gradient: 'linear-gradient(135deg, #4a1d96 0%, #6d28d9 50%, #8b5cf6 100%)', shadow: 'rgba(109,40,217,0.25)' },
 };
 
-// Roles that have a dedicated /dashboard/role-kpis endpoint on the backend.
-// All ManagerDashboard roles now get role-specific KPIs.
-const RICH_ROLES = ['project_manager', 'bank_officer', 'agency_officer', 'agronomist'];
 const CONTRACTOR_ROLES = ['structure_contractor', 'drip_contractor', 'bed_contractor', 'plantation_contractor'];
-const ALL_KPIS_ROLES = [...RICH_ROLES, ...CONTRACTOR_ROLES];
 
 interface ManagerDashboardProps {
   stats: any;
   error?: string | null;
   user: AuthUser;
+  /** From useRoleDashboard — sole source for role KPI packs */
+  roleKpis?: any;
+  kpisLoading?: boolean;
 }
 
 // ─── Main ManagerDashboard ─────────────────────────────────────────────────────
-const ManagerDashboard = ({ stats, error, user }: ManagerDashboardProps) => {
-  const [roleKpis, setRoleKpis]       = useState<any>(null);
-  const [kpisLoading, setKpisLoading] = useState<boolean>(false);
-
+const ManagerDashboard = ({ stats, error, user, roleKpis = null, kpisLoading = false }: ManagerDashboardProps) => {
   const cfg: RoleConfig = ROLE_CONFIG[user.role] ?? { icon: '👤', label: `${user.role} Dashboard`, focus: 'Your Assignments' };
-  const needsKpis  = ALL_KPIS_ROLES.includes(user.role);
-
-  useEffect(() => {
-    if (!needsKpis) return;
-    setKpisLoading(true);
-    getRoleKpis(user.role)
-      .then(setRoleKpis)
-      .catch(() => setRoleKpis(null))
-      .finally(() => setKpisLoading(false));
-  }, [user.role, needsKpis]);
 
   return (
     <div className="dashboard-container">

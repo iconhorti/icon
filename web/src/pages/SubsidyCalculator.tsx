@@ -16,10 +16,7 @@ import {
   ChevronDown, ChevronUp, CheckCircle, Info, Landmark,
   Layers, Calculator
 } from 'lucide-react';
-// NOTE: 'getSubsidyRates' is not an exported member of '../api/client' (pre-existing
-// issue carried over from the original .jsx — preserved as-is to avoid behavior changes).
-import * as apiClient from '../api/client';
-const getSubsidyRates: () => Promise<any> = (apiClient as any).getSubsidyRates;
+import { getSubsidyRates } from '../api/client';
 import './SubsidyCalculator.css';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

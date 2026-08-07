@@ -79,7 +79,7 @@ const TeamAssignmentCard = ({ project, userRole, refresh }: TeamAssignmentCardPr
   if (!['admin', 'owner', 'project_manager'].includes(userRole)) return null;
 
   const assignedContractors: Record<string, AssignedContractorEntry> = {};
-  ((project as any).contractors as ProjectContractor[] | undefined)?.forEach((pc: any) => {
+  (project.contractors as ProjectContractor[] | undefined)?.forEach((pc: any) => {
     if (!assignedContractors[pc.contractor_id]) {
       assignedContractors[pc.contractor_id] = { contractor: pc.contractor, skills: [] };
     }

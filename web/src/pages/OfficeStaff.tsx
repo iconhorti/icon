@@ -5,7 +5,7 @@ import { ROLE_SETS } from '../lib/roles';
 import { errorMessage } from '../lib/logger';
 import { useStaff, useSaveUser, useToggleUser } from '../hooks/useUsers';
 import { useRoleKpis } from '../hooks/useRoleKpis';
-import { useDprPipeline, useAdvanceStage } from '../hooks/useProjects';
+import { useDprPipeline, useAdvanceStage, type DprPipelineKey } from '../hooks/useProjects';
 import { useTranslation } from '../i18n/useTranslation';
 import { RefreshCw, Edit2, Ban, CheckCircle, Phone, X, Save, Plus,
          Tractor, MapPin, ClipboardCheck, AlertTriangle, TrendingUp,
@@ -360,7 +360,17 @@ const thS: any = { padding: '0.4rem 0.75rem', textAlign: 'left', color: '#64748b
               fontSize: '0.75rem', whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' };
 const tdS: any = { padding: '0.5rem 0.75rem', color: '#475569', fontSize: '0.82rem', verticalAlign: 'middle' };
 
-const STAGE_FLOW = [
+const STAGE_FLOW: Array<{
+  stage: DprPipelineKey;
+  label: string;
+  desc: string;
+  next: string;
+  btnLabel: string;
+  btnColor: string;
+  bg: string;
+  border: string;
+  textColor: string;
+}> = [
   {
     stage:    'site_visit',
     label:    '📍 Awaiting Design Start',
@@ -454,7 +464,7 @@ const DprWorkflowTab = () => {
           Loading DPR pipeline…
         </div>
       ) : (
-        STAGE_FLOW.map((sf: any, si: number) => (
+        STAGE_FLOW.map((sf, si) => (
           <div key={sf.stage} className="dashboard-card" style={{
             marginBottom: '1rem',
             borderLeft: `4px solid ${sf.btnColor}`,

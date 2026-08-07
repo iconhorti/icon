@@ -143,7 +143,10 @@ export interface paths {
         post?: never;
         /**
          * Hard Delete User
-         * @description Permanently delete a user. Owner only.
+         * @description Permanently delete a user. Owner only. Cannot delete yourself — this is
+         *     the irreversible path, so the self-delete guard matters even more here
+         *     than on the soft-delete endpoint (no recovery, and could strand the system
+         *     with no owner left).
          */
         delete: operations["hard_delete_user_api_v1_users__user_id__permanent_delete"];
         options?: never;
@@ -556,6 +559,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{project_id}/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Project Activity
+         * @description Audit trail for a project — most recent first. Consumed by the web ActivityTimeline.
+         */
+        get: operations["get_project_activity_api_v1_projects__project_id__activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{project_id}/items": {
         parameters: {
             query?: never;
@@ -818,10 +841,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Contractor Skills
+         * List Contractor Skill Assignments
          * @description Get all skills for a specific contractor. Admin/staff only.
          */
-        get: operations["get_contractor_skills_api_v1_contractors_contractor_skills__contractor_id__get"];
+        get: operations["list_contractor_skill_assignments_api_v1_contractors_contractor_skills__contractor_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1122,6 +1145,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Notifications Stream */
+        get: operations["notifications_stream_api_v1_notifications_stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/my": {
         parameters: {
             query?: never;
@@ -1274,6 +1314,8 @@ export interface paths {
          * @description Return document types from the master table, grouped by category.
          *     - category: filter to a single category (KYC, Land, Bank, Project, Agency, Completion, Other)
          *     - role_filter: show only types this role may upload (defaults to caller's role)
+         *     - stage + required=true: return the documents REQUIRED to complete `stage`
+         *       (used by the web required-document gate). Returns { document_types: [...] }.
          *     Falls back to the hardcoded DOCUMENT_TYPES list if the master table is empty.
          */
         get: operations["get_document_types_api_v1_uploads_types_get"];
@@ -1647,6 +1689,34 @@ export interface paths {
         post?: never;
         /** Delete Village */
         delete: operations["delete_village_api_v1_lookups_villages__village_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/devices/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Device
+         * @description Upsert a push token for the current user (idempotent by token).
+         *
+         *     Tokens DO legitimately move between users on a shared/reissued device
+         *     (logout → different user logs in), so we don't block reassignment. But a
+         *     silent in-place mutation means a token someone else already owns can be
+         *     re-pointed without trace — e.g. if a token leaked, the attacker's
+         *     registration would silently steal the victim's future notifications.
+         *     Instead we explicitly revoke (delete) the old registration and create a
+         *     fresh one, and log cross-user reassignment for audit visibility.
+         */
+        post: operations["register_device_api_v1_devices_register_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2144,6 +2214,13 @@ export interface components {
             /** Created At */
             created_at?: string | null;
         };
+        /** DeviceRegisterInput */
+        DeviceRegisterInput: {
+            /** Token */
+            token: string;
+            /** Platform */
+            platform?: string | null;
+        };
         /** DistrictCreate */
         DistrictCreate: {
             /** Name */
@@ -2620,6 +2697,12 @@ export interface components {
             actual_start_date?: string | null;
             /** Actual End Date */
             actual_end_date?: string | null;
+            /** Version */
+            version?: number | null;
+            /** Total Project Cost */
+            total_project_cost?: number | null;
+            /** Total Eligible Project Cost */
+            total_eligible_project_cost?: number | null;
         };
         /** ProjectDetailResponse */
         ProjectDetailResponse: {
@@ -2682,6 +2765,8 @@ export interface components {
             actual_end_date?: string | null;
             /** Id */
             id: number;
+            /** Version */
+            version?: number | null;
             /** Created At */
             created_at?: string | null;
             /** Updated At */
@@ -2707,6 +2792,56 @@ export interface components {
              * @default 0
              */
             total_subsidy_amount_proposed: number | null;
+            /** Loan Amount */
+            loan_amount?: number | null;
+            /** Loan Sanction Date */
+            loan_sanction_date?: string | null;
+            /** Loan Account Number */
+            loan_account_number?: string | null;
+            /** Goc Number */
+            goc_number?: string | null;
+            /** Goc Date */
+            goc_date?: string | null;
+            /** Plantation Date */
+            plantation_date?: string | null;
+            /** Seedlings Count */
+            seedlings_count?: number | null;
+            /** Agronomist Recommendations */
+            agronomist_recommendations?: string | null;
+            /** Subsidy Claim Reference */
+            subsidy_claim_reference?: string | null;
+            /** Subsidy Claim Date */
+            subsidy_claim_date?: string | null;
+            /** Subsidy Inspection Date */
+            subsidy_inspection_date?: string | null;
+            /** Subsidy Inspector Name */
+            subsidy_inspector_name?: string | null;
+            /** Subsidy Inspection Remarks */
+            subsidy_inspection_remarks?: string | null;
+            /** Subsidy Inspection Passed */
+            subsidy_inspection_passed?: number | null;
+            /** Subsidy Meeting Date */
+            subsidy_meeting_date?: string | null;
+            /** Subsidy Meeting Decision */
+            subsidy_meeting_decision?: string | null;
+            /** Subsidy Approved Amount */
+            subsidy_approved_amount?: number | null;
+            /** Subsidy Meeting Remarks */
+            subsidy_meeting_remarks?: string | null;
+            /** Subsidy Release Order Number */
+            subsidy_release_order_number?: string | null;
+            /** Subsidy Release Amount */
+            subsidy_release_amount?: number | null;
+            /** Subsidy Release Date */
+            subsidy_release_date?: string | null;
+            /** Subsidy Bank Credit Date */
+            subsidy_bank_credit_date?: string | null;
+            /** Completion Certificate Date */
+            completion_certificate_date?: string | null;
+            /** Farmer Feedback */
+            farmer_feedback?: string | null;
+            /** Farmer Rating */
+            farmer_rating?: number | null;
             farmer?: components["schemas"]["PersonResponse"] | null;
             dealer?: components["schemas"]["PersonResponse"] | null;
             bank_branch?: components["schemas"]["BankBranchResponse"] | null;
@@ -2716,6 +2851,11 @@ export interface components {
              * @default []
              */
             items: components["schemas"]["ProjectItemResponse"][];
+            /**
+             * Contractors
+             * @default []
+             */
+            contractors: components["schemas"]["ProjectContractorResponse"][];
         };
         /** ProjectFieldUpdate */
         ProjectFieldUpdate: {
@@ -2899,6 +3039,8 @@ export interface components {
             actual_end_date?: string | null;
             /** Id */
             id: number;
+            /** Version */
+            version?: number | null;
             /** Created At */
             created_at?: string | null;
             /** Updated At */
@@ -2924,6 +3066,56 @@ export interface components {
              * @default 0
              */
             total_subsidy_amount_proposed: number | null;
+            /** Loan Amount */
+            loan_amount?: number | null;
+            /** Loan Sanction Date */
+            loan_sanction_date?: string | null;
+            /** Loan Account Number */
+            loan_account_number?: string | null;
+            /** Goc Number */
+            goc_number?: string | null;
+            /** Goc Date */
+            goc_date?: string | null;
+            /** Plantation Date */
+            plantation_date?: string | null;
+            /** Seedlings Count */
+            seedlings_count?: number | null;
+            /** Agronomist Recommendations */
+            agronomist_recommendations?: string | null;
+            /** Subsidy Claim Reference */
+            subsidy_claim_reference?: string | null;
+            /** Subsidy Claim Date */
+            subsidy_claim_date?: string | null;
+            /** Subsidy Inspection Date */
+            subsidy_inspection_date?: string | null;
+            /** Subsidy Inspector Name */
+            subsidy_inspector_name?: string | null;
+            /** Subsidy Inspection Remarks */
+            subsidy_inspection_remarks?: string | null;
+            /** Subsidy Inspection Passed */
+            subsidy_inspection_passed?: number | null;
+            /** Subsidy Meeting Date */
+            subsidy_meeting_date?: string | null;
+            /** Subsidy Meeting Decision */
+            subsidy_meeting_decision?: string | null;
+            /** Subsidy Approved Amount */
+            subsidy_approved_amount?: number | null;
+            /** Subsidy Meeting Remarks */
+            subsidy_meeting_remarks?: string | null;
+            /** Subsidy Release Order Number */
+            subsidy_release_order_number?: string | null;
+            /** Subsidy Release Amount */
+            subsidy_release_amount?: number | null;
+            /** Subsidy Release Date */
+            subsidy_release_date?: string | null;
+            /** Subsidy Bank Credit Date */
+            subsidy_bank_credit_date?: string | null;
+            /** Completion Certificate Date */
+            completion_certificate_date?: string | null;
+            /** Farmer Feedback */
+            farmer_feedback?: string | null;
+            /** Farmer Rating */
+            farmer_rating?: number | null;
             farmer?: components["schemas"]["PersonResponse"] | null;
             dealer?: components["schemas"]["PersonResponse"] | null;
             bank_branch?: components["schemas"]["BankBranchResponse"] | null;
@@ -2990,6 +3182,8 @@ export interface components {
             actual_end_date?: string | null;
             /** Id */
             id: number;
+            /** Version */
+            version?: number | null;
             /** Created At */
             created_at?: string | null;
             /** Updated At */
@@ -3015,6 +3209,56 @@ export interface components {
              * @default 0
              */
             total_subsidy_amount_proposed: number | null;
+            /** Loan Amount */
+            loan_amount?: number | null;
+            /** Loan Sanction Date */
+            loan_sanction_date?: string | null;
+            /** Loan Account Number */
+            loan_account_number?: string | null;
+            /** Goc Number */
+            goc_number?: string | null;
+            /** Goc Date */
+            goc_date?: string | null;
+            /** Plantation Date */
+            plantation_date?: string | null;
+            /** Seedlings Count */
+            seedlings_count?: number | null;
+            /** Agronomist Recommendations */
+            agronomist_recommendations?: string | null;
+            /** Subsidy Claim Reference */
+            subsidy_claim_reference?: string | null;
+            /** Subsidy Claim Date */
+            subsidy_claim_date?: string | null;
+            /** Subsidy Inspection Date */
+            subsidy_inspection_date?: string | null;
+            /** Subsidy Inspector Name */
+            subsidy_inspector_name?: string | null;
+            /** Subsidy Inspection Remarks */
+            subsidy_inspection_remarks?: string | null;
+            /** Subsidy Inspection Passed */
+            subsidy_inspection_passed?: number | null;
+            /** Subsidy Meeting Date */
+            subsidy_meeting_date?: string | null;
+            /** Subsidy Meeting Decision */
+            subsidy_meeting_decision?: string | null;
+            /** Subsidy Approved Amount */
+            subsidy_approved_amount?: number | null;
+            /** Subsidy Meeting Remarks */
+            subsidy_meeting_remarks?: string | null;
+            /** Subsidy Release Order Number */
+            subsidy_release_order_number?: string | null;
+            /** Subsidy Release Amount */
+            subsidy_release_amount?: number | null;
+            /** Subsidy Release Date */
+            subsidy_release_date?: string | null;
+            /** Subsidy Bank Credit Date */
+            subsidy_bank_credit_date?: string | null;
+            /** Completion Certificate Date */
+            completion_certificate_date?: string | null;
+            /** Farmer Feedback */
+            farmer_feedback?: string | null;
+            /** Farmer Rating */
+            farmer_rating?: number | null;
         };
         /** SiteVisitCreate */
         SiteVisitCreate: {
@@ -4406,6 +4650,39 @@ export interface operations {
             };
         };
     };
+    get_project_activity_api_v1_projects__project_id__activity_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                project_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_project_items_api_v1_projects__project_id__items_get: {
         parameters: {
             query?: never;
@@ -4998,7 +5275,7 @@ export interface operations {
             };
         };
     };
-    get_contractor_skills_api_v1_contractors_contractor_skills__contractor_id__get: {
+    list_contractor_skill_assignments_api_v1_contractors_contractor_skills__contractor_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -5526,6 +5803,37 @@ export interface operations {
             };
         };
     };
+    notifications_stream_api_v1_notifications_stream_get: {
+        parameters: {
+            query?: {
+                token?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_my_notifications_api_v1_notifications_my_get: {
         parameters: {
             query?: {
@@ -5730,6 +6038,8 @@ export interface operations {
             query?: {
                 category?: string | null;
                 role_filter?: string | null;
+                stage?: string | null;
+                required?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -6774,6 +7084,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_device_api_v1_devices_register_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeviceRegisterInput"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

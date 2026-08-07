@@ -1,17 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProjects, getProjectStats, updateProjectStage, getProjectActivity } from '../api/client';
+import { getProjects, getProjectById, getProjectStats, updateProjectStage, getProjectActivity } from '../api/client';
 import { qk } from '../lib/queryClient';
 import type { ProjectListItem } from '../types/models';
 import type { ProjectActivity } from '../api/client';
 
 /** Project list with optional server params (stage, limit, …). */
 export function useProjects(params: Record<string, any> = {}) {
-  return useQuery<ProjectListItem[]>({
+  return useQuery<{ items: ProjectListItem[]; total: number }>({
     queryKey: qk.projects(params),
     queryFn: async () => {
       const data = await getProjects(params);
-      return Array.isArray(data) ? data : [];
+      // Fallback for older API versions that return a plain array
+      if (Array.isArray(data)) {
+        return { items: data, total: data.length };
+      }
+      return data;
     },
+  });
+}
+
+/**
+ * Single project detail (ProjectDetail page). Cached per id so navigating away
+ * and back doesn't always re-fetch, and other mutations (stage advance, field
+ * updates, contractor assignment) can invalidate qk.project(id) to refresh it
+ * instead of each caller having to know about a manual refetch callback.
+ */
+export function useProjectDetail(id: string | number | undefined) {
+  return useQuery<any>({
+    queryKey: qk.project(id ?? ''),
+    queryFn: () => getProjectById(id as string),
+    enabled: !!id,
   });
 }
 
@@ -24,8 +42,16 @@ export function useProjectStats() {
 }
 
 /** The three early-stage buckets shown in the Office-Staff DPR workflow tab. */
+export type DprPipelineKey = 'site_visit' | 'design_boq' | 'dpr_ready';
+export type DprPipeline = Record<DprPipelineKey, ProjectListItem[]>;
+
+function bucketItems(raw: { items?: ProjectListItem[] } | ProjectListItem[]): ProjectListItem[] {
+  if (Array.isArray(raw)) return raw;
+  return raw?.items ?? [];
+}
+
 export function useDprPipeline() {
-  return useQuery<Record<string, any[]>>({
+  return useQuery<DprPipeline>({
     queryKey: qk.dprPipeline,
     queryFn: async () => {
       const [sv, db, dr] = await Promise.all([
@@ -33,7 +59,11 @@ export function useDprPipeline() {
         getProjects({ stage: 'design_boq', limit: 200 }),
         getProjects({ stage: 'dpr_ready',  limit: 200 }),
       ]);
-      return { site_visit: sv, design_boq: db, dpr_ready: dr };
+      return {
+        site_visit: bucketItems(sv),
+        design_boq: bucketItems(db),
+        dpr_ready: bucketItems(dr),
+      };
     },
   });
 }

@@ -36,9 +36,21 @@ Hooks live in `src/hooks/`; query keys are centralized in `qk` (`src/lib/queryCl
 Mutations auto-invalidate the relevant lists, so edits on one screen refresh others
 (e.g. creating a `project_manager` in Users updates the Staff screen).
 
-**Everything is converted** — including the two previously-deferred areas:
+**Correction to an earlier claim in this doc:** an older version of this section said
+"Everything is converted." That covered every *list/management* page, but missed three
+detail/form pages. Corrected status:
 - `OfficeStaff` → `DprWorkflowTab`: `useDprPipeline` + `useAdvanceStage` (per-row "updating" UX preserved; advancing a stage auto-refreshes the pipeline and project lists).
 - `Masters`: `useLookup(tab)` for each standard tab + `useLocationLevel(level, filter)` for the states→districts→talukas→villages drill-down. The `data` map the JSX reads is now assembled from the query cache (`src/hooks/useMasters.ts`), and all create/update/delete handlers invalidate the relevant keys instead of hand-managing a `data` dictionary.
+- `ProjectDetail` — **converted**: `useProjectDetail(id)` in `src/hooks/useProjects.ts`. This page is a pure single-entity read (no transform), so it was a clean fit — same `fetchProject()` name kept as a thin wrapper over `refetch()` since three child components (`TeamAssignmentCard`, `ProjectItemsCard`, `StageActionPanel`) take it as a `refresh`/`onSaved` callback prop.
+- `ProjectForm` / `FarmerForm` — **intentionally NOT converted**. Both are multi-step
+  wizards where the initial fetch (edit mode) is immediately unpacked into independent
+  pieces of editable local state (e.g. `FarmerForm` splits one address string into
+  village/taluka/district/pincode fields). There's no "cached read" being displayed —
+  it's a one-time form-initialization side effect, which `useEffect` + imperative fetch
+  already expresses correctly. Converting these to `useQuery` would only address a
+  documentation/consistency complaint, not fix a bug, at real regression risk for the
+  most complex pages in the app (multi-step submission with item/document side effects).
+  Revisit only if a concrete staleness bug shows up in practice.
 
 ### How to extend the patterns
 - **More server-state hooks:** copy any file in `src/hooks/` (e.g. `useDealers.ts`). Add the key to `qk` in `src/lib/queryClient.ts`, then delete the page's manual `useState(loading/error/data)` + `loadX()`.
