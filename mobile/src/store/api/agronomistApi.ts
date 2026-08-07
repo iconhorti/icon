@@ -37,6 +37,7 @@ export const agronomistApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getFarms: build.query<Farm[], void>({
       query: () => '/agronomist/farms',
+      providesTags: ['Farmers'],
     }),
     submitAssessment: build.mutation<{ id: number }, HealthAssessmentInput>({
       query: ({ farm_id, ...body }) => ({
@@ -44,6 +45,9 @@ export const agronomistApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
+      // A submitted assessment can change a farm's dap/alert_level — without
+      // this, FarmListScreen/AgronomistDashboard go stale until manual refresh.
+      invalidatesTags: ['Farmers'],
     }),
     submitVisitReport: build.mutation<{ id: number }, VisitReportInput>({
       query: ({ farm_id, ...body }) => ({
@@ -51,6 +55,7 @@ export const agronomistApi = baseApi.injectEndpoints({
         method: 'POST',
         body,
       }),
+      invalidatesTags: ['Farmers'],
     }),
   }),
 });

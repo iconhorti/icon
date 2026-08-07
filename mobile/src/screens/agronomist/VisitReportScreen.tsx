@@ -3,11 +3,13 @@ import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityInd
 import { queueAdd } from '../../db/syncQueue';
 import { PhotoCapture, photosToPayload, type PhotoMap } from '../../components/shared/PhotoCapture';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import type { VisitReportScreenProps } from '../../navigation/types';
 
 const PURPLE = '#6A1B9A';
 const VR_PHOTOS = ['Photo 1', 'Photo 2'] as const;
 
-export default function VisitReportScreen() {
+export default function VisitReportScreen({ route }: VisitReportScreenProps) {
+  const farmId = route.params.farmId;
   const [findings, setFindings] = useState('');
   const [reco1, setReco1]       = useState('');
   const [reco2, setReco2]       = useState('');
@@ -20,7 +22,7 @@ export default function VisitReportScreen() {
   const handleSubmit = async () => {
     if (findings.trim().length < 20) { Alert.alert('Findings Required', 'Enter at least 20 characters.'); return; }
     setSubmitting(true);
-    await queueAdd('visit_report', '/agronomist/farms/0/visit-report', { findings_summary: findings.trim(), recommendations: [reco1, reco2, reco3].filter(r => r.trim()), next_visit_date: nextDate, farmer_otp: otp.trim() || undefined, photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
+    await queueAdd('visit_report', `/agronomist/farms/${farmId}/visit-report`, { findings_summary: findings.trim(), recommendations: [reco1, reco2, reco3].filter(r => r.trim()), next_visit_date: nextDate, farmer_otp: otp.trim() || undefined, photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
     setSubmitting(false);
     Alert.alert('Saved', 'Visit report saved and PDF will be sent to farmer on sync.');
     setFindings(''); setReco1(''); setReco2(''); setReco3(''); setNextDate(''); setOtp(''); setPhotos({});

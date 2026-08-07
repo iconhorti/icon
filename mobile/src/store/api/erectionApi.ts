@@ -1,5 +1,6 @@
 import { baseApi } from './baseApi';
 import type { Project } from './projectsApi';
+import { mapProjectsResponse } from './transforms';
 
 export interface Milestone {
   key:          string;
@@ -46,6 +47,7 @@ export const erectionApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getErectionProjects: build.query<{ items: Project[]; total: number }, void>({
       query: () => ({ url: '/projects', params: { limit: 100 } }),
+      transformResponse: mapProjectsResponse,
       providesTags: ['Projects'],
     }),
     getMilestones: build.query<Milestone[], number>({
@@ -66,6 +68,10 @@ export const erectionApi = baseApi.injectEndpoints({
     }),
     submitDPR: build.mutation<{ id: number }, DPRInput>({
       query: (body) => ({ url: '/projects/dpr', method: 'POST', body }),
+      // Sibling mutations (submitSiteVisit, updateMilestone) both invalidate
+      // Projects — this one didn't, so milestone/progress screens went stale
+      // after a DPR submit.
+      invalidatesTags: ['Projects'],
     }),
   }),
 });

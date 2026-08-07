@@ -1,4 +1,5 @@
 import { baseApi } from './baseApi';
+import { mapBackendNotification } from './transforms';
 
 export interface AppNotification {
   id:                number;
@@ -13,11 +14,13 @@ export interface AppNotification {
 export const notificationsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getNotifications: build.query<AppNotification[], void>({
-      query: () => '/notifications',
+      query: () => '/notifications/my',
+      transformResponse: (response: Parameters<typeof mapBackendNotification>[0][]) =>
+        response.map(mapBackendNotification),
       providesTags: ['Notifications'],
     }),
     markRead: build.mutation<void, number>({
-      query: (id) => ({ url: `/notifications/${id}/read`, method: 'PATCH' }),
+      query: (id) => ({ url: `/notifications/${id}/read`, method: 'PUT' }),
       invalidatesTags: ['Notifications'],
     }),
   }),

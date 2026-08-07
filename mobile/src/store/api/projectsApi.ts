@@ -1,4 +1,5 @@
 import { baseApi } from './baseApi';
+import { mapProjectsResponse } from './transforms';
 
 export interface ProjectFarmer {
   id:         number;
@@ -24,6 +25,8 @@ export interface Project {
   loan_account_number?:        string | null;
   goc_number?:                 string | null;
   created_at:                  string;
+  version?:                    number;
+  updated_at?:                 string;
 }
 
 export interface ProjectsResponse {
@@ -35,6 +38,7 @@ export const projectsApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getProjects: build.query<ProjectsResponse, { stage?: string; limit?: number; offset?: number }>({
       query: (params) => ({ url: '/projects', params }),
+      transformResponse: mapProjectsResponse,
       providesTags: ['Projects'],
     }),
     getProjectById: build.query<Project, number>({
@@ -42,12 +46,16 @@ export const projectsApi = baseApi.injectEndpoints({
       providesTags: (_result, _err, id) => [{ type: 'Projects', id }],
     }),
     updateProjectFields: build.mutation<Project, { id: number; fields: Partial<Project>; version?: number; updated_at?: string }>({
-      query: ({ id, fields, version, updated_at }) => ({
-        url:    `/projects/${id}/fields`,
-        method: 'PATCH',
-        // Concurrency token travels in the body so the backend can 409 a stale write.
-        body:   { ...fields, ...(version !== undefined ? { version } : {}), ...(updated_at ? { updated_at } : {}) },
-      }),
+      query: ({ id, fields, version, updated_at }) => {
+        const updates: Record<string, unknown> = { ...fields };
+        if (version !== undefined) updates.version = version;
+        if (updated_at) updates.updated_at = updated_at;
+        return {
+          url:    `/projects/${id}`,
+          method: 'PATCH',
+          body:   { updates },
+        };
+      },
       invalidatesTags: (_result, _err, { id }) => [{ type: 'Projects', id }, 'Stats'],
     }),
   }),

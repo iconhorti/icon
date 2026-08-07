@@ -6,6 +6,7 @@ import SiteVisitScreen        from '../../screens/erection/SiteVisitScreen';
 import MilestoneTrackerScreen from '../../screens/erection/MilestoneTrackerScreen';
 import DPRScreen              from '../../screens/erection/DPRScreen';
 import NotificationsScreen    from '../../screens/shared/NotificationsScreen';
+import ProfileScreen          from '../../screens/shared/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const ico = (e: string) => () => <Text style={{ fontSize: 20 }}>{e}</Text>;
@@ -25,6 +26,7 @@ export default function ErectionTabs() {
       <Tab.Screen name="Milestones" component={MilestoneTrackerScreen} options={{ title: 'Progress',  tabBarIcon: ico('🧱') }} />
       <Tab.Screen name="DPR"        component={DPRScreen}              options={{ title: 'DPR',       tabBarIcon: ico('📷') }} />
       <Tab.Screen name="Alerts"     component={NotificationsScreen}    options={{ title: 'Alerts',    tabBarIcon: ico('🔔') }} />
+      <Tab.Screen name="Profile"    component={ProfileScreen}          options={{ title: 'Profile',   tabBarIcon: ico('👤') }} />
     </Tab.Navigator>
   );
 }

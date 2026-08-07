@@ -1,4 +1,5 @@
 import { baseApi } from './baseApi';
+import { mapBackendFarmer, wrapListResponse } from './transforms';
 
 export interface Farmer {
   id:            number;
@@ -14,17 +15,29 @@ export interface RegisterFarmerInput {
   first_name:    string;
   last_name?:    string;
   phone_primary: string;
-  password:      string;
+  password?:     string;
 }
 
 export const farmersApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getFarmers: build.query<{ items: Farmer[]; total: number }, { limit?: number; search?: string }>({
       query: (params) => ({ url: '/farmers', params }),
+      transformResponse: (response: Parameters<typeof mapBackendFarmer>[0][]) =>
+        wrapListResponse(response.map(mapBackendFarmer)),
       providesTags: ['Farmers'],
     }),
     registerFarmer: build.mutation<Farmer, RegisterFarmerInput>({
-      query: (body) => ({ url: '/farmers', method: 'POST', body }),
+      query: ({ first_name, last_name, phone_primary }) => ({
+        url:  '/users',
+        method: 'POST',
+        body: {
+          first_name,
+          last_name,
+          phone_primary,
+          role: 'farmer',
+        },
+      }),
+      transformResponse: mapBackendFarmer,
       invalidatesTags: ['Farmers', 'Stats'],
     }),
   }),

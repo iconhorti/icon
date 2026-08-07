@@ -3,13 +3,15 @@ import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityInd
 import { queueAdd } from '../../db/syncQueue';
 import { PhotoCapture, photosToPayload, type PhotoMap } from '../../components/shared/PhotoCapture';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
+import type { AssessmentScreenProps } from '../../navigation/types';
 
 const PURPLE = '#6A1B9A';
 const PESTS    = ['Whitefly', 'Aphids', 'Thrips', 'Spider Mite', 'Mealybug'];
 const DISEASES = ['Powdery Mildew', 'Leaf Curl Virus', 'Botrytis', 'Fusarium Wilt', 'Bacterial Blight'];
 const HA_PHOTOS = ['Crop', 'Pest / Disease'] as const;
 
-export default function HealthAssessmentScreen() {
+export default function HealthAssessmentScreen({ route }: AssessmentScreenProps) {
+  const farmId = route.params.farmId;
   const [cropStage, setCropStage]         = useState('');
   const [plantHeight, setPlantHeight]     = useState('');
   const [canopyPct, setCanopyPct]         = useState('');
@@ -25,7 +27,7 @@ export default function HealthAssessmentScreen() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    await queueAdd('health_assessment', '/agronomist/farms/0/assessment', { crop_stage: cropStage, plant_height: parseFloat(plantHeight) || 0, canopy_pct: parseFloat(canopyPct) || 0, pests: selectedPests.map(p => ({ type: p, severity: pestSeverity, treatment: '' })), diseases: selectedDiseases.map(d => ({ type: d, description: '' })), nutrients, photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
+    await queueAdd('health_assessment', `/agronomist/farms/${farmId}/assessment`, { crop_stage: cropStage, plant_height: parseFloat(plantHeight) || 0, canopy_pct: parseFloat(canopyPct) || 0, pests: selectedPests.map(p => ({ type: p, severity: pestSeverity, treatment: '' })), diseases: selectedDiseases.map(d => ({ type: d, description: '' })), nutrients, photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
     setSubmitting(false);
     Alert.alert('Saved', 'Assessment saved and will sync when connected.');
     setCropStage(''); setPlantHeight(''); setCanopyPct(''); setSelectedPests([]); setSelectedDiseases([]); setNutrients(''); setPhotos({});

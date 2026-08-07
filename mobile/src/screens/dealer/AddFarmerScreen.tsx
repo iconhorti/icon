@@ -22,7 +22,6 @@ export default function AddFarmerScreen({ navigation }: { navigation: Navigation
         first_name:    firstName.trim(),
         last_name:     lastName.trim() || undefined,
         phone_primary: phone.trim(),
-        password:      'icon123',
       }).unwrap();
       Alert.alert('Success', `${firstName} registered!`, [
         { text: 'OK', onPress: () => navigation.goBack() },

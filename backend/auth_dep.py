@@ -14,6 +14,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from sqlalchemy import false as sql_false
 
 from database import get_db
 import models
@@ -219,3 +220,38 @@ def assert_project_access(
         status_code=status.HTTP_403_FORBIDDEN,
         detail="You do not have access to this project.",
     )
+
+
+def accessible_project_filter(current_user: models.Person, db: Session):
+    """
+    Bulk/SQL equivalent of assert_project_access — returns a SQLAlchemy filter
+    expression for models.Project (or None if the role has unrestricted access).
+    """
+    if is_staff_or_above(current_user):
+        return None
+    if current_user.role in {"project_manager", "bank_officer", "agency_officer", "agronomist"}:
+        return None
+
+    if current_user.role == "dealer":
+        mapped_farmer_ids = [
+            m.farmer_id for m in
+            db.query(models.DealerFarmerMapping).filter_by(
+                dealer_id=current_user.id, is_active=1,
+            ).all()
+        ]
+        return (models.Project.dealer_id == current_user.id) | (
+            models.Project.farmer_id.in_(mapped_farmer_ids) if mapped_farmer_ids
+            else sql_false()
+        )
+
+    if current_user.role == "farmer":
+        return models.Project.farmer_id == current_user.id
+
+    if is_contractor(current_user):
+        assigned_project_ids = [
+            pc.project_id for pc in
+            db.query(models.ProjectContractor).filter_by(contractor_id=current_user.id).all()
+        ]
+        return models.Project.id.in_(assigned_project_ids) if assigned_project_ids else sql_false()
+
+    return sql_false()

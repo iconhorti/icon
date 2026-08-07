@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device        from 'expo-device';
 import { type EventSubscription } from 'expo-modules-core';
@@ -55,7 +56,7 @@ export const usePushNotifications = (authToken: string | undefined): void => {
           'Content-Type':  'application/json',
           'Authorization': `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ push_token: pushToken, platform: 'android' }),
+        body: JSON.stringify({ token: pushToken, platform: Platform.OS }),
       }).catch(() => {
         // Non-critical — app works without push registration
       });

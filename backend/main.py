@@ -187,6 +187,12 @@ app.include_router(lookups.router, prefix=api_prefix)
 from routers import devices
 app.include_router(devices.router, prefix=api_prefix)
 
+from routers import agronomist
+app.include_router(agronomist.router, prefix=api_prefix)
+
+from routers import iot
+app.include_router(iot.router, prefix=api_prefix)
+
 # 5. Root Endpoint (Health Check)
 @app.get("/")
 def read_root():

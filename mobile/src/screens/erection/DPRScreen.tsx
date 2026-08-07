@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { queueAdd } from '../../db/syncQueue';
+import { ProjectPicker } from '../../components/shared/ProjectPicker';
 import { PhotoCapture, photosToPayload, type PhotoMap } from '../../components/shared/PhotoCapture';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
@@ -10,6 +11,7 @@ const ML: Record<string,string> = { m1_foundation:'M1', m2_structure_erection:'M
 const DPR_PHOTOS = ['Before', 'After'] as const;
 
 export default function DPRScreen() {
+  const [projectId, setProjectId]   = useState<number | null>(null);
   const [milestone, setMilestone]   = useState(MILESTONES[0]);
   const [skilled, setSkilled]       = useState('');
   const [unskilled, setUnskilled]   = useState('');
@@ -19,13 +21,14 @@ export default function DPRScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async () => {
+    if (!projectId) { Alert.alert('Project Required', 'Select a project before submitting.'); return; }
     if (workDone.trim().length < 30) { Alert.alert('Work Description Required', 'Enter at least 30 characters.'); return; }
     if (Object.keys(photos).length < DPR_PHOTOS.length) {
       Alert.alert('Photos Required', `Capture both photos (${Object.keys(photos).length}/${DPR_PHOTOS.length}) before submitting.`);
       return;
     }
     setSubmitting(true);
-    await queueAdd('dpr', '/projects/dpr', { milestone_key: milestone, skilled_count: parseInt(skilled) || 0, unskilled_count: parseInt(unskilled) || 0, work_done: workDone.trim(), materials_note: materials.trim(), photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
+    await queueAdd('dpr', '/projects/dpr', { project_id: projectId, milestone_key: milestone, skilled_count: parseInt(skilled) || 0, unskilled_count: parseInt(unskilled) || 0, work_done: workDone.trim(), materials_note: materials.trim(), photos: photosToPayload(photos), submitted_at: new Date().toISOString() });
     setSubmitting(false);
     Alert.alert('DPR Saved', 'Daily progress report saved and will sync when connected.');
     setWorkDone(''); setSkilled(''); setUnskilled(''); setMaterials(''); setPhotos({});
@@ -35,6 +38,7 @@ export default function DPRScreen() {
     <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <View style={styles.dateBar}><Text style={styles.dateTxt}>Today: {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</Text></View>
       <View style={{ padding: SPACING.md }}>
+        <ProjectPicker value={projectId} onChange={(p) => setProjectId(p.id)} accent={ORANGE} />
         <Text style={styles.label}>Milestone</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: SPACING.md }}>
           {MILESTONES.map(m => (

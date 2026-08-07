@@ -770,3 +770,14 @@ class DeviceToken(Base):
     platform    = Column(String(20))   # ios | android | web
     created_at  = Column(DateTime, default=func.now())
     updated_at  = Column(DateTime, onupdate=func.now())
+
+
+class IdempotencyKey(Base):
+    """Stores replay responses for Idempotency-Key headers (mobile offline queue)."""
+    __tablename__ = "idempotency_keys"
+
+    key           = Column(String(64), primary_key=True)
+    route         = Column(String(200), nullable=False)
+    response_json = Column(Text, nullable=False)
+    status_code   = Column(Integer, default=201)
+    created_at    = Column(DateTime, default=func.now())

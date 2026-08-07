@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useParams, Link } from 'react-router-dom';
 import { updateProjectStage } from '../api/client';
 import { useProjectDetail } from '../hooks/useProjects';
+import { useRequiredDocs } from '../hooks/useDocuments';
 import {
   ArrowLeft, MapPin, CheckCircle, Clock, Building2, BadgeIndianRupee,
   User, FileText, Loader2, ChevronRight,
@@ -36,6 +37,7 @@ const ProjectDetail = () => {
   const [updating, setUpdating] = useState<boolean>(false);
 
   const { data: project, isLoading: loading, isError, refetch } = useProjectDetail(id);
+  const { data: requiredDocs } = useRequiredDocs(id, project?.project_stage);
   const error = isError ? 'Project not found or connection error.' : null;
   // Kept as a stable name/signature — TeamAssignmentCard, ProjectItemsCard, and
   // StageActionPanel all take a `refresh`/`onSaved` callback with this shape.
@@ -66,6 +68,17 @@ const ProjectDetail = () => {
       return;
     }
 
+    const isAdmin = role === 'admin' || role === 'owner';
+    const docMissing = requiredDocs?.missing ?? [];
+    if (!isAdmin && docMissing.length > 0) {
+      toast(
+        `Upload required documents before advancing:\n• ${docMissing.join('\n• ')}`,
+        'warning',
+        6000
+      );
+      return;
+    }
+
     const nextStage  = WORKFLOW_STAGES[currentIndex + 1];
     if (!window.confirm(
       `Advance project to next stage?\n\n` +
@@ -78,8 +91,15 @@ const ProjectDetail = () => {
       await updateProjectStage(id as string, nextStage.id);
       await fetchProject();
       queryClient.invalidateQueries({ queryKey: ['projectActivity', String(id)] });
-    } catch {
-      toast('Failed to advance stage. Check backend connection.', 'error');
+    } catch (err: unknown) {
+      const ax = err as { response?: { data?: { detail?: unknown } } };
+      const detail = ax?.response?.data?.detail;
+      const msg = typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d: { msg?: string }) => d.msg).filter(Boolean).join(', ')
+          : 'Failed to advance stage. Check backend connection.';
+      toast(msg, 'error', 6000);
     } finally {
       setUpdating(false);
     }

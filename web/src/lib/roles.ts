@@ -41,12 +41,28 @@ export const ROLE_SETS = {
     ROLES.ADMIN, ROLES.OWNER, ROLES.OFFICE_STAFF, ROLES.PROJECT_MANAGER,
     ROLES.BANK_OFFICER, ROLES.AGENCY_OFFICER, ROLES.AGRONOMIST, ROLES.FARMER,
   ],
-  // Project list + detail: all staff + contractor roles (backend filters too).
-  // Farmer excluded — they view their single project via the Dashboard.
+  // Project list + detail: staff, contractors, and farmers (backend scopes farmer to own project).
   PROJECT_VIEW: [
     ROLES.ADMIN, ROLES.OWNER, ROLES.OFFICE_STAFF, ROLES.PROJECT_MANAGER,
     ROLES.BANK_OFFICER, ROLES.AGENCY_OFFICER, ROLES.AGRONOMIST, ROLES.DEALER,
+    ROLES.FARMER,
     ROLES.STRUCTURE_CONTRACTOR, ROLES.DRIP_CONTRACTOR, ROLES.BED_CONTRACTOR,
+    ROLES.PLANTATION_CONTRACTOR,
+  ],
+  /** Full AdminDashboard (financials, staff, regional). */
+  DASHBOARD_ADMIN: [ROLES.ADMIN, ROLES.OWNER],
+  /**
+   * ManagerDashboard shell (PM / bank / agency / agro / contractors).
+   * Never use bare "manager" — backend role is project_manager.
+   */
+  DASHBOARD_MANAGER: [
+    ROLES.PROJECT_MANAGER,
+    ROLES.BANK_OFFICER,
+    ROLES.AGENCY_OFFICER,
+    ROLES.AGRONOMIST,
+    ROLES.STRUCTURE_CONTRACTOR,
+    ROLES.DRIP_CONTRACTOR,
+    ROLES.BED_CONTRACTOR,
     ROLES.PLANTATION_CONTRACTOR,
   ],
 } as const satisfies Record<string, readonly Role[]>;

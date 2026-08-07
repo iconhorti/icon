@@ -3,6 +3,7 @@ import { ScrollView, View, Text, TextInput, TouchableOpacity, Switch, Alert, Act
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { queueAdd }  from '../../db/syncQueue';
+import { ProjectPicker } from '../../components/shared/ProjectPicker';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 
 const ORANGE = '#E65100';
@@ -11,6 +12,7 @@ const PHOTO_SLOTS = ['Corner', 'Water', 'Road', 'Other'] as const;
 type PhotoSlot = typeof PHOTO_SLOTS[number];
 
 export default function SiteVisitScreen() {
+  const [projectId, setProjectId]       = useState<number | null>(null);
   const [step, setStep]               = useState(0);
   const [gpsLat, setGpsLat]           = useState<number | null>(null);
   const [gpsLng, setGpsLng]           = useState<number | null>(null);
@@ -56,6 +58,7 @@ export default function SiteVisitScreen() {
   };
 
   const handleSubmit = async () => {
+    if (!projectId) { Alert.alert('Project Required', 'Select a project before submitting.'); return; }
     if (!gpsLat || !gpsLng) { Alert.alert('GPS Required', 'Capture GPS location before submitting.'); return; }
     if (observations.trim().length < 10) { Alert.alert('Observations Required', 'Enter at least 10 characters.'); return; }
     if (photoCount < PHOTO_SLOTS.length) {
@@ -63,7 +66,8 @@ export default function SiteVisitScreen() {
       return;
     }
     setSubmitting(true);
-    await queueAdd('site_visit', '/site-visits', {
+    await queueAdd('site_visit', '/site-visits/field', {
+      project_id: projectId,
       gps_lat: gpsLat, gps_lng: gpsLng, soil_type: soilType, water_source: waterSource,
       electricity, road_access: roadAccess, observations,
       // base64 data URIs keyed by slot — embedded so they survive offline and
@@ -73,7 +77,7 @@ export default function SiteVisitScreen() {
     });
     setSubmitting(false);
     Alert.alert('Saved Offline', 'Site visit saved locally and will sync when you reconnect.', [
-      { text: 'OK', onPress: () => { setStep(0); setGpsLat(null); setGpsLng(null); setSoilType(''); setWaterSource(''); setObservations(''); setPhotos({}); } },
+      { text: 'OK', onPress: () => { setStep(0); setProjectId(null); setGpsLat(null); setGpsLng(null); setSoilType(''); setWaterSource(''); setObservations(''); setPhotos({}); } },
     ]);
   };
 
@@ -151,6 +155,9 @@ export default function SiteVisitScreen() {
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
+      <View style={{ padding: SPACING.md, paddingBottom: 0 }}>
+        <ProjectPicker value={projectId} onChange={(p) => setProjectId(p.id)} accent={ORANGE} />
+      </View>
       <View style={styles.stepBar}>
         {STEPS.map((s, i) => (
           <React.Fragment key={s}>

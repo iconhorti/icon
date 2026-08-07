@@ -11,7 +11,8 @@ Permissions:
   DELETE /{id}    → admin, owner only
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi.responses import JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
@@ -19,10 +20,13 @@ from pydantic import BaseModel
 from database import get_db
 from auth_dep import (
     get_current_user, require_roles, is_admin,
-    assert_project_access, ADMIN_ROLES, STAFF_ROLES, CONTRACTOR_ROLES,
+    assert_project_access, accessible_project_filter,
+    ADMIN_ROLES, STAFF_ROLES, CONTRACTOR_ROLES,
 )
 from activity import log_activity
-from constants.stages import STAGE_REQUIRED_DOCS
+from constants.stages import STAGE_REQUIRED_DOCS, CONSTRUCTION, STAGE_LABELS
+from field_photos import save_base64_photos
+from idempotency import get_cached, save_cached
 import models, schemas
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -39,7 +43,7 @@ CONTRACTOR_STAGE_MAP = {
 }
 
 # ─── LIST ─────────────────────────────────────────────────────────────────────
-@router.get("/", response_model=List[schemas.ProjectListResponse])
+@router.get("/", response_model=schemas.ProjectPageResponse)
 def get_projects(
     skip: int = 0,
     limit: int = 100,
@@ -56,28 +60,13 @@ def get_projects(
         joinedload(models.Project.area_type)
     )
 
-    # Role-based scoping
-    if current_user.role == "dealer":
-        # Dealer sees their own assigned projects OR projects for their mapped farmers
-        mapped_farmer_ids = [
-            m.farmer_id for m in
-            db.query(models.DealerFarmerMapping).filter_by(dealer_id=current_user.id).all()
-        ]
-        query = query.filter(
-            (models.Project.dealer_id == current_user.id) |
-            (models.Project.farmer_id.in_(mapped_farmer_ids))
-        )
-    elif current_user.role == "farmer":
-        query = query.filter(models.Project.farmer_id == current_user.id)
-    elif current_user.role in CONTRACTOR_ROLES:
-        # Contractors see only projects they are assigned to
-        assigned_ids = [
-            pc.project_id for pc in
-            db.query(models.ProjectContractor)
-              .filter(models.ProjectContractor.contractor_id == current_user.id).all()
-        ]
-        query = query.filter(models.Project.id.in_(assigned_ids))
-    # admin, owner, office_staff, project_manager, bank_officer, agency_officer, agronomist → all projects
+    # Role-based scoping — single source of truth in auth_dep, shared with the
+    # documents list. (This used to be a third inline copy of the same rules,
+    # which is how per-endpoint drift happens; it also silently granted UNKNOWN
+    # roles full visibility, whereas the shared filter denies them.)
+    access_filter = accessible_project_filter(current_user, db)
+    if access_filter is not None:
+        query = query.filter(access_filter)
 
     # Optional filters
     if stage:
@@ -86,7 +75,82 @@ def get_projects(
     if district:
         query = query.join(models.Project.village).join(models.Village.taluka).join(models.Taluka.district).filter(models.District.name.ilike(f"%{district}%"))
 
-    return query.offset(skip).limit(limit).all()
+    total = query.count()
+    items = query.offset(skip).limit(limit).all()
+
+    return {"total": total, "items": items}
+
+
+# ─── Mobile DPR (project_id in body — offline queue parity) ───────────────────
+class MobilePhoto(BaseModel):
+    slot: str
+    data: str
+
+
+class MobileDPRCreate(BaseModel):
+    project_id: int
+    milestone_key: str
+    skilled_count: int = 0
+    unskilled_count: int = 0
+    work_done: str
+    materials_note: Optional[str] = None
+    photos: list[MobilePhoto] = []
+    submitted_at: Optional[str] = None
+
+
+@router.post("/dpr", response_model=schemas.DailySiteReportResponse, status_code=201)
+def submit_mobile_dpr(
+    body: MobileDPRCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+):
+    """Submit a Daily Progress Report from the mobile offline queue."""
+    route = "/projects/dpr"
+    if idempotency_key:
+        cached = get_cached(db, idempotency_key)
+        if cached:
+            code, payload = cached
+            return JSONResponse(content=payload, status_code=code)
+
+    ALLOWED = ADMIN_ROLES | {"project_manager", "office_staff"} | CONTRACTOR_ROLES
+    if current_user.role not in ALLOWED:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+
+    project = db.query(models.Project).filter(models.Project.id == body.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    assert_project_access(project, current_user, db)
+
+    photo_paths = save_base64_photos(body.project_id, [p.model_dump() for p in body.photos], "dpr")
+    work_done = body.work_done.strip()
+    if body.materials_note:
+        work_done = f"{work_done}\n\nMaterials: {body.materials_note.strip()}"
+
+    from datetime import date
+    import json as _json
+
+    db_report = models.DailySiteReport(
+        project_id=body.project_id,
+        report_date=date.today(),
+        supervisor_id=current_user.id,
+        work_done=work_done,
+        labor_count=(body.skilled_count or 0) + (body.unskilled_count or 0) or None,
+        issues=_json.dumps({
+            "milestone_key": body.milestone_key,
+            "skilled_count": body.skilled_count,
+            "unskilled_count": body.unskilled_count,
+            "photos": photo_paths,
+            "submitted_at": body.submitted_at,
+        }, ensure_ascii=False),
+    )
+    db.add(db_report)
+    db.commit()
+    db.refresh(db_report)
+    if idempotency_key:
+        payload = schemas.DailySiteReportResponse.model_validate(db_report).model_dump(mode="json")
+        save_cached(db, idempotency_key, route, 201, payload)
+    return db_report
 
 
 # ─── GET ONE ──────────────────────────────────────────────────────────────────
@@ -137,6 +201,7 @@ def create_project(
         mapping = db.query(models.DealerFarmerMapping).filter(
             models.DealerFarmerMapping.dealer_id == current_user.id,
             models.DealerFarmerMapping.farmer_id == project.farmer_id,
+            models.DealerFarmerMapping.is_active == 1,
         ).first()
         if not mapping:
             raise HTTPException(
@@ -196,6 +261,22 @@ def update_project_stage(
 
     old_stage = project.project_stage
 
+    # Non-admins may only advance one stage forward at a time (reverts still allowed).
+    if stage_name != old_stage and current_user.role not in ADMIN_ROLES:
+        try:
+            old_idx = models.VALID_STAGES.index(old_stage)
+            new_idx = models.VALID_STAGES.index(stage_name)
+            if new_idx > old_idx + 1:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Cannot skip stages. Current: '{old_stage}', "
+                        f"requested: '{stage_name}'. Advance one stage at a time."
+                    ),
+                )
+        except ValueError:
+            pass
+
     # ── Required-document gate — block leaving a stage that still has missing
     # mandatory documents. Admin/owner can override (e.g. fixing data manually).
     if stage_name != old_stage and current_user.role not in ADMIN_ROLES:
@@ -215,6 +296,7 @@ def update_project_stage(
                 )
 
     project.project_stage = stage_name
+    project.project_stage_entered_at = func.now()
     project.version = (project.version or 1) + 1
 
     log = models.ProjectMilestone(
@@ -268,6 +350,127 @@ def get_project_activity(
         }
         for r in rows
     ]
+
+
+MILESTONE_ORDER = [
+    "m1_foundation", "m2_structure_erection", "m3_covering_material", "m4_trellising",
+    "m5_drip_fitting", "m6_bed_preparation", "m7_plantation",
+]
+
+
+def _milestone_mobile(record: Optional[models.ProjectMilestone], key: str, project_stage: str) -> dict:
+    signed_off = False
+    status = "pending"
+    progress_pct = 0
+    if record:
+        signed_off = record.status in ("completed", "signed_off", "done")
+        status = "completed" if signed_off else ("active" if record.status in ("active", "in_progress") else "pending")
+        progress_pct = 100 if signed_off else (50 if status == "active" else 0)
+    elif project_stage == key:
+        status = "active"
+        progress_pct = 25
+
+    return {
+        "key":           key,
+        "label":         STAGE_LABELS.get(key, key),
+        "status":        status,
+        "progress_pct":  progress_pct,
+        "photos_count":  0,
+        "signed_off":    signed_off,
+        "signed_off_at": record.completion_date.isoformat() if record and record.completion_date else None,
+        "version":       record.version if record else 1,
+    }
+
+
+@router.get("/{project_id}/milestones")
+def get_project_milestones(
+    project_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+):
+    """Construction milestones for mobile MilestoneTrackerScreen."""
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    assert_project_access(project, current_user, db)
+
+    records = {
+        m.milestone_name: m
+        for m in db.query(models.ProjectMilestone)
+        .filter(
+            models.ProjectMilestone.project_id == project_id,
+            models.ProjectMilestone.milestone_name.in_(MILESTONE_ORDER),
+        )
+        .all()
+    }
+    return [_milestone_mobile(records.get(k), k, project.project_stage or "") for k in MILESTONE_ORDER]
+
+
+class MilestonePatchBody(BaseModel):
+    progress_pct: int = 0
+    description: Optional[str] = None
+    version: Optional[int] = None
+
+
+@router.patch("/{project_id}/milestones/{milestone_key}")
+def patch_project_milestone(
+    project_id: int,
+    milestone_key: str,
+    body: MilestonePatchBody,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+):
+    """Update/sign-off a construction milestone from mobile."""
+    ALLOWED = ADMIN_ROLES | {"project_manager", "office_staff"} | CONTRACTOR_ROLES
+    if current_user.role not in ALLOWED:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+
+    if milestone_key not in MILESTONE_ORDER:
+        raise HTTPException(status_code=400, detail=f"Unknown milestone: {milestone_key}")
+
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    assert_project_access(project, current_user, db)
+
+    record = (
+        db.query(models.ProjectMilestone)
+        .filter(
+            models.ProjectMilestone.project_id == project_id,
+            models.ProjectMilestone.milestone_name == milestone_key,
+        )
+        .first()
+    )
+    if not record:
+        record = models.ProjectMilestone(
+            project_id=project_id,
+            milestone_name=milestone_key,
+            status="in_progress",
+            updated_by=current_user.id,
+        )
+        db.add(record)
+        db.flush()
+
+    if body.version is not None and record.version is not None and int(body.version) != int(record.version):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This milestone was changed by someone else since you opened it. Reload and try again.",
+        )
+
+    from datetime import date as _date
+
+    if body.progress_pct >= 100:
+        record.status = "completed"
+        record.completion_date = _date.today()
+    else:
+        record.status = "in_progress"
+    if body.description:
+        record.remarks = body.description
+    record.updated_by = current_user.id
+    record.version = (record.version or 1) + 1
+    db.commit()
+    db.refresh(record)
+    return _milestone_mobile(record, milestone_key, project.project_stage or "")
 
 
 @router.put("/{project_id}", response_model=schemas.ProjectResponse)
@@ -399,6 +602,35 @@ def delete_project_item(
 class ProjectFieldUpdate(BaseModel):
     updates: dict
 
+
+def _coerce_project_field(key: str, value):
+    """
+    `updates` is an untyped dict, so JSON strings arrive uncoerced: the web
+    stage panels submit dates as 'YYYY-MM-DD', numbers as text-input strings,
+    and cleared fields as ''. SQLAlchemy's SQLite Date/Integer/Float types
+    reject strings at commit (StatementError), so convert by the model
+    column's type before assignment. Raises 400 (not 500) on garbage input.
+    """
+    col = models.Project.__table__.columns.get(key)
+    if col is None or value is None or value == "":
+        return None if value == "" else value
+    t = col.type
+    try:
+        if isinstance(value, str):
+            import sqlalchemy as sa
+            from datetime import date, datetime
+            if isinstance(t, sa.DateTime):
+                return datetime.fromisoformat(value)
+            if isinstance(t, sa.Date):
+                return date.fromisoformat(value[:10])
+            if isinstance(t, sa.Integer):
+                return int(value)
+            if isinstance(t, (sa.Float, sa.Numeric)):
+                return float(value)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail=f"Invalid value for field '{key}': {value!r}")
+    return value
+
 @router.patch("/{project_id}")
 def update_project_fields(
     project_id: int,
@@ -420,26 +652,62 @@ def update_project_fields(
 
     assert_project_access(project, current_user, db)
 
-    # Role-scoped field whitelists.
-    # NOTE: bank_officer / agency_officer / agronomist have no fields here by
-    # design — bank/subsidy/agronomy data lives on BankBranch, ProjectMilestone,
-    # and AgronomistConsultation respectively, not on Project itself. Previously
-    # this whitelist listed Project columns that don't exist (e.g.
-    # "agronomist_recommendations"), which silently no-op'd via the
-    # hasattr() guard below — removed rather than left as misleading dead config.
-    # If those roles need to PATCH project-level fields in the future, add real
-    # columns first, then list them here.
+    # Role-scoped field whitelists. Each set mirrors the fields the matching
+    # web StageActionPanel form actually collects for that stage/role —
+    # see constants/stages.py STAGE_ROLES and web/.../StageActionPanel.tsx.
     ADMIN_FIELDS = {
         "total_project_cost", "total_eligible_cost", "priority", "remarks",
         "project_manager_id",
     }
     CONSTRUCTION_FIELDS = {
-        "actual_start_date", "actual_end_date"
+        "actual_start_date", "actual_end_date",
     }
+    BANK_FIELDS = {
+        "loan_amount", "loan_sanction_date", "loan_account_number",
+    }
+    GOC_FIELDS = {
+        "goc_number", "goc_date",
+    }
+    AGENCY_FIELDS = {
+        "subsidy_inspection_date", "subsidy_inspector_name",
+        "subsidy_inspection_remarks", "subsidy_inspection_passed",
+        "subsidy_meeting_date", "subsidy_meeting_decision",
+        "subsidy_approved_amount", "subsidy_meeting_remarks",
+        "subsidy_release_order_number", "subsidy_release_amount",
+        "subsidy_release_date", "subsidy_bank_credit_date",
+    }
+    SUBSIDY_CLAIM_FIELDS = {
+        "subsidy_claim_reference", "subsidy_claim_date",
+    }
+    AGRONOMIST_FIELDS = {
+        "plantation_date", "seedlings_count", "agronomist_recommendations",
+    }
+    COMPLETION_FIELDS = {
+        "completion_certificate_date", "farmer_feedback", "farmer_rating",
+    }
+    # office_staff/admin/owner can see every stage panel per STAGE_ROLES, so
+    # they get the union of every role-specific set in addition to their own.
+    OFFICE_STAFF_FIELDS = (
+        GOC_FIELDS | AGENCY_FIELDS | SUBSIDY_CLAIM_FIELDS | COMPLETION_FIELDS
+    )
 
     role = current_user.role
-    if role in ADMIN_ROLES | {"office_staff", "project_manager"}:
+    if role in ADMIN_ROLES | {"office_staff"}:
+        ALLOWED_FIELDS = (
+            ADMIN_FIELDS | CONSTRUCTION_FIELDS | BANK_FIELDS | OFFICE_STAFF_FIELDS
+            | AGRONOMIST_FIELDS
+        )
+    elif role == "project_manager":
         ALLOWED_FIELDS = ADMIN_FIELDS | CONSTRUCTION_FIELDS
+    elif role == "bank_officer":
+        ALLOWED_FIELDS = BANK_FIELDS
+    elif role == "agency_officer":
+        # subsidy_claim is office_staff/admin/owner only per STAGE_ROLES —
+        # agency_officer covers goc_registration/agency_inspection/
+        # committee_meeting/subsidy_released, not subsidy_claim.
+        ALLOWED_FIELDS = GOC_FIELDS | AGENCY_FIELDS
+    elif role == "agronomist":
+        ALLOWED_FIELDS = AGRONOMIST_FIELDS
     else:
         ALLOWED_FIELDS = set()
 
@@ -457,7 +725,7 @@ def update_project_fields(
     applied = []
     for key, value in updates.items():
         if key in ALLOWED_FIELDS and hasattr(project, key):
-            setattr(project, key, value)
+            setattr(project, key, _coerce_project_field(key, value))
             applied.append(key)
 
     if applied:
@@ -540,6 +808,7 @@ def add_co_applicant(
         mapping = db.query(models.DealerFarmerMapping).filter(
             models.DealerFarmerMapping.dealer_id == current_user.id,
             models.DealerFarmerMapping.farmer_id == body.farmer_id,
+            models.DealerFarmerMapping.is_active == 1,
         ).first()
         if not mapping:
             raise HTTPException(status_code=403, detail="Dealers can only manage their own farmers as co-applicants.")
@@ -593,6 +862,7 @@ def remove_co_applicant(
         mapping = db.query(models.DealerFarmerMapping).filter(
             models.DealerFarmerMapping.dealer_id == current_user.id,
             models.DealerFarmerMapping.farmer_id == farmer_id,
+            models.DealerFarmerMapping.is_active == 1,
         ).first()
         if not mapping:
             raise HTTPException(status_code=403, detail="Dealers can only manage their own farmers as co-applicants.")
@@ -600,3 +870,31 @@ def remove_co_applicant(
     db.delete(record)
     db.commit()
     return {"message": f"Farmer {farmer_id} removed from project {project_id} co-applicants."}
+
+# ─── DAILY PROGRESS REPORT (DPR) ──────────────────────────────────────────────
+@router.post("/{project_id}/dpr", response_model=schemas.DailySiteReportResponse, status_code=201)
+def create_daily_progress_report(
+    project_id: int,
+    report: schemas.DailySiteReportCreate,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+):
+    """Submit a Daily Progress Report (DPR) from the mobile app."""
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    
+    assert_project_access(project, current_user, db)
+
+    db_report = models.DailySiteReport(**report.dict(exclude_unset=True))
+    db_report.project_id = project_id
+    
+    # Auto-assign the supervisor if not explicitly provided
+    if not db_report.supervisor_id:
+        db_report.supervisor_id = current_user.id
+        
+    db.add(db_report)
+    db.commit()
+    db.refresh(db_report)
+    
+    return db_report

@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet } from 'react-native';
 import { COLORS, SPACING, RADIUS } from '../../constants/theme';
 import type { RouteProp } from '@react-navigation/native';
 import { API_URL } from '../../constants/config';
+import { useAuthContext } from '../../context/AuthContext';
 
-const PURPLE = '#6A1B9A';
-const WS_URL  = API_URL.replace(/^http/, 'ws');
+const WS_URL = API_URL.replace(/^http/, 'ws');
 
 interface SensorData { temperature: number; humidity: number; co2: number; soil_moisture: number; ec: number; ph: number; }
 const DEFAULT: SensorData = { temperature: 0, humidity: 0, co2: 0, soil_moisture: 0, ec: 0, ph: 0 };
@@ -21,10 +21,28 @@ const STATUS_COLORS = { ok: '#2E7D46', warning: '#E65100', critical: '#C62828' }
 
 export default function IotMonitorScreen({ route }: { route: RouteProp<any, any> }) {
   const farmId = route.params?.farmId as number | undefined;
+  const { user } = useAuthContext();
   const [sensors, setSensors]     = useState<SensorData>(DEFAULT);
   const [connected, setConnected] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+
+  const applyReading = useCallback((data: SensorData) => {
+    setSensors(data);
+    setLastUpdate(new Date().toLocaleTimeString('en-IN'));
+  }, []);
+
+  const fetchSnapshot = useCallback(async () => {
+    if (!farmId || !user?.token) return;
+    try {
+      const res = await fetch(`${API_URL}/iot/snapshot/${farmId}`, {
+        headers: { Authorization: `Bearer ${user.token}` },
+      });
+      if (res.ok) {
+        applyReading(await res.json() as SensorData);
+      }
+    } catch { /* offline — keep last reading */ }
+  }, [farmId, user?.token, applyReading]);
 
   useEffect(() => {
     if (!farmId) return;
@@ -34,10 +52,18 @@ export default function IotMonitorScreen({ route }: { route: RouteProp<any, any>
     ws.onclose   = () => setConnected(false);
     ws.onerror   = () => setConnected(false);
     ws.onmessage = (e) => {
-      try { setSensors(JSON.parse(e.data) as SensorData); setLastUpdate(new Date().toLocaleTimeString('en-IN')); } catch { /* ignore */ }
+      try { applyReading(JSON.parse(e.data) as SensorData); } catch { /* ignore */ }
     };
     return () => { ws.close(); wsRef.current = null; };
-  }, [farmId]);
+  }, [farmId, applyReading]);
+
+  // REST fallback when WebSocket is down (poll every 60 s).
+  useEffect(() => {
+    if (!farmId || connected) return;
+    fetchSnapshot();
+    const id = setInterval(fetchSnapshot, 60_000);
+    return () => clearInterval(id);
+  }, [farmId, connected, fetchSnapshot]);
 
   if (!farmId) return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.bg }}>
@@ -57,7 +83,9 @@ export default function IotMonitorScreen({ route }: { route: RouteProp<any, any>
   return (
     <ScrollView style={{ flex: 1, backgroundColor: COLORS.bg }}>
       <View style={[styles.connBar, { backgroundColor: connected ? '#2E7D46' : '#E65100' }]}>
-        <Text style={styles.connTxt}>{connected ? `Live · ${lastUpdate ?? '—'}` : 'Disconnected — last reading shown'}</Text>
+        <Text style={styles.connTxt}>
+          {connected ? `Live · ${lastUpdate ?? '—'}` : `Polling · ${lastUpdate ?? 'fetching…'}`}
+        </Text>
       </View>
       <View style={styles.grid}>
         {TILES.map(({ key, label, unit, value }) => {
@@ -77,7 +105,7 @@ export default function IotMonitorScreen({ route }: { route: RouteProp<any, any>
           <Text style={styles.alertTxt}>{getSensorStatus(t.key, t.value) === 'critical' ? 'CRITICAL' : 'WARNING'}: {t.label} at {t.value.toFixed(1)}{t.unit}</Text>
         </View>
       ))}
-      <Text style={styles.note}>Readings update every 60 s via WebSocket.</Text>
+      <Text style={styles.note}>Readings update every 60 s via WebSocket (or HTTP when offline).</Text>
     </ScrollView>
   );
 }

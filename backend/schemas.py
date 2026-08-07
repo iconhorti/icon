@@ -379,6 +379,10 @@ class ProjectListResponse(ProjectResponse):
     class Config:
         from_attributes = True
 
+class ProjectPageResponse(BaseModel):
+    items: List[ProjectListResponse]
+    total: int
+
 class ProjectDetailResponse(ProjectResponse):
     farmer: Optional[PersonResponse] = None
     dealer: Optional[PersonResponse] = None
