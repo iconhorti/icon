@@ -83,7 +83,7 @@ export default function FarmerHomeScreen() {
           <Text style={styles.errorText}>⚠️ Could not load data. Pull down to retry.</Text>
         </View>
       )}
-      {/* Header */}
+      {/* Header — status-first banner */}
       <View style={styles.header}>
         <Text style={styles.projectName} numberOfLines={2}>
           {project.project_name ?? `Project #${project.id}`}
@@ -92,6 +92,17 @@ export default function FarmerHomeScreen() {
         <View style={{ marginTop: SPACING.sm }}>
           <StageChip stage={project.project_stage} />
         </View>
+        {(() => {
+          const docsNow = STAGE_DOCS[project.project_stage] ?? [];
+          if (docsNow.length === 0) return null;
+          return (
+            <View style={styles.actionBanner}>
+              <Text style={styles.actionBannerTxt}>
+                Action needed: arrange {docsNow.length} document{docsNow.length > 1 ? 's' : ''} for this stage
+              </Text>
+            </View>
+          );
+        })()}
       </View>
 
       {/* Progress */}
@@ -120,13 +131,25 @@ export default function FarmerHomeScreen() {
         ))}
       </View>
 
-      {/* ── Financial summary ── */}
-      <Text style={styles.sectionTitle}>FINANCIALS</Text>
+      {/* ── Financial summary (real fields only — no 50% estimates) ── */}
+      <Text style={styles.sectionTitle}>MONEY</Text>
       <View style={styles.finCard}>
         {[
           { label: 'Total Project Cost',  value: formatInr(project.estimated_project_cost),  color: COLORS.text },
-          { label: 'Government Subsidy',  value: formatInr(project.total_subsidy_proposed),  color: '#2E7D46' },
-          { label: 'Your Investment',     value: formatInr((project.estimated_project_cost ?? 0) - (project.total_subsidy_proposed ?? 0)), color: '#E65100' },
+          {
+            label: 'Government Subsidy',
+            value: project.total_subsidy_proposed
+              ? formatInr(project.total_subsidy_proposed)
+              : 'Not yet proposed',
+            color: '#2E7D46',
+          },
+          {
+            label: 'Your Investment',
+            value: project.total_subsidy_proposed
+              ? formatInr((project.estimated_project_cost ?? 0) - (project.total_subsidy_proposed ?? 0))
+              : '—',
+            color: '#E65100',
+          },
         ].map(({ label, value, color }) => (
           <View key={label} style={styles.finRow}>
             <Text style={styles.finLabel}>{label}</Text>
@@ -177,6 +200,8 @@ const styles = StyleSheet.create({
   emptyEmoji:     { fontSize: 48, marginBottom: 12 },
   emptyTitle:     { fontSize: 18, fontWeight: '800', color: COLORS.text, marginBottom: 8 },
   emptySub:       { fontSize: 13, color: COLORS.subtext, textAlign: 'center', lineHeight: 20 },
+  actionBanner:   { marginTop: SPACING.md, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: SPACING.sm },
+  actionBannerTxt:{ color: '#FEF3C7', fontSize: 12, fontWeight: '700' },
   header:         { backgroundColor: COLORS.primary, padding: SPACING.lg },
   projectName:    { fontSize: 18, fontWeight: '800', color: COLORS.white },
   projectCode:    { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 4 },

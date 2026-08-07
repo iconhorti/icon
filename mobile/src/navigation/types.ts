@@ -10,7 +10,7 @@ export type RootStackParamList = {
 // ── Loan tab stack (nested stack inside the tab) ─────────────────────────────
 // Screen names must match the Stack.Screen name= values in LoanTabs.tsx
 export type LoanStackParamList = {
-  Pipeline:      undefined;
+  Pipeline:      { initialStage?: string } | undefined;
   LoanDetail:    { id: number };
   Disbursement:  { id: number };
   BankFollowUp:  undefined;

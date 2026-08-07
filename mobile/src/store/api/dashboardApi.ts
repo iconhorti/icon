@@ -50,13 +50,39 @@ export interface DashboardStats {
   my_project:              MyProject | null;
 }
 
+/** Queue row from /dashboard/role-kpis (PM / bank / agency / agro). */
+export interface RoleKpiQueueItem {
+  id: string;
+  projectId: number;
+  farmer: string;
+  district: string;
+  stage?: string;
+  amount?: number;
+  urgency: string;
+}
+
+/** Loose pack — fields vary by role. Consumers read only what they need. */
+export type RoleKpis = Record<string, unknown> & {
+  role?: string;
+  queue?: RoleKpiQueueItem[];
+};
+
 export const dashboardApi = baseApi.injectEndpoints({
   endpoints: (build) => ({
     getStats: build.query<DashboardStats, void>({
       query: () => '/dashboard/stats',
       providesTags: ['Stats'],
     }),
+    /**
+     * Role KPI pack. Role is derived from JWT on the server; optional `role`
+     * query is only honored for supervisors (admin/owner/office_staff).
+     * Mobile always omits it so each user sees their own pack.
+     */
+    getRoleKpis: build.query<RoleKpis, void>({
+      query: () => '/dashboard/role-kpis',
+      providesTags: ['Stats'],
+    }),
   }),
 });
 
-export const { useGetStatsQuery } = dashboardApi;
+export const { useGetStatsQuery, useGetRoleKpisQuery } = dashboardApi;

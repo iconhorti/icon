@@ -71,6 +71,7 @@ export default function AdminDashboard({ navigation }: Props) {
 
   const sb   = stats?.stage_breakdown   ?? {};
   const kpis = stats?.admin_metrics?.kpis ?? {};
+  const regionData = stats?.admin_metrics?.region_data ?? [];
 
   const sumStages = (stages: string[]) =>
     stages.reduce((total, s) => total + (sb[s] ?? 0), 0);
@@ -78,6 +79,17 @@ export default function AdminDashboard({ navigation }: Props) {
   const openList = (stages: string[], title: string) => {
     navigation.navigate('PipelineList', { stages, title });
   };
+
+  const proposed = stats?.total_subsidy_proposed ?? 0;
+  const received = stats?.total_subsidy_received ?? 0;
+  const realizationPct =
+    proposed > 0 ? Math.round((received / proposed) * 1000) / 10 : null;
+
+  // Largest non-terminal stage queue (count-based; aging is P2)
+  const bottleneck = (Object.entries(sb) as [string, number][])
+    .filter(([k]) => !['completed', 'subsidy_released', 'draft'].includes(k))
+    .sort((a, b) => b[1] - a[1])[0];
+  const subsidyQueue = sumStages(['subsidy_claim', 'agency_inspection', 'committee_meeting']);
 
   return (
     <ScrollView
@@ -100,7 +112,26 @@ export default function AdminDashboard({ navigation }: Props) {
         </View>
       )}
 
-      {/* ── Top 3 summary KPIs ── */}
+      {/* Band 1 — Situation banner */}
+      {bottleneck && bottleneck[1] > 0 && (
+        <TouchableOpacity
+          style={styles.situation}
+          onPress={() => openList([bottleneck[0]], bottleneck[0].replace(/_/g, ' '))}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.sitText}>
+            Largest queue:{' '}
+            <Text style={styles.sitBold}>{bottleneck[0].replace(/_/g, ' ')}</Text>
+            {' — '}
+            <Text style={styles.sitBold}>{bottleneck[1]}</Text>
+            {subsidyQueue > 0 ? ` · ${subsidyQueue} in subsidy` : ''}
+            {realizationPct != null ? ` · Realization ${realizationPct}%` : ''}
+          </Text>
+          <Text style={styles.sitArrow}>›</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* ── Top summary KPIs ── */}
       <View style={styles.topRow}>
         <View style={[styles.topCard, { borderTopColor: '#C8972A' }]}>
           <Text style={styles.topEmoji}>🏗️</Text>
@@ -118,6 +149,36 @@ export default function AdminDashboard({ navigation }: Props) {
           <Text style={styles.topLbl}>Completed</Text>
         </View>
       </View>
+
+      {/* Subsidy realization — decision KPI (target ≥70%) */}
+      {realizationPct != null && (
+        <View style={styles.realCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.realLbl}>Subsidy Realization</Text>
+            <Text style={[
+              styles.realVal,
+              { color: realizationPct >= 70 ? '#16A34A' : realizationPct >= 50 ? '#D97706' : '#DC2626' },
+            ]}>
+              {realizationPct}%
+            </Text>
+            <Text style={styles.realSub}>
+              {formatInr(received)} of {formatInr(proposed)} · target ≥70%
+            </Text>
+          </View>
+          <View style={styles.realTrack}>
+            <View
+              style={[
+                styles.realFill,
+                {
+                  width: `${Math.min(100, realizationPct)}%` as any,
+                  backgroundColor:
+                    realizationPct >= 70 ? '#22C55E' : realizationPct >= 50 ? '#F59E0B' : '#EF4444',
+                },
+              ]}
+            />
+          </View>
+        </View>
+      )}
 
       {/* ── Financial card ── */}
       <View style={styles.finCard}>
@@ -189,6 +250,27 @@ export default function AdminDashboard({ navigation }: Props) {
         </>
       )}
 
+      {/* ── Regional concentration (live admin_metrics) ── */}
+      {regionData.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>TOP DISTRICTS</Text>
+          {[...regionData].sort((a, b) => b.count - a.count).slice(0, 5).map((r) => {
+            const max = Math.max(...regionData.map((x) => x.count), 1);
+            return (
+              <View key={r.name} style={styles.teamRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.teamLabel}>{r.name}</Text>
+                  <View style={styles.miniTrack}>
+                    <View style={[styles.miniFill, { width: `${(r.count / max) * 100}%` as any }]} />
+                  </View>
+                </View>
+                <Text style={styles.teamCount}>{r.count}</Text>
+              </View>
+            );
+          })}
+        </>
+      )}
+
       {/* ── Team roster ── */}
       <Text style={styles.sectionTitle}>TEAM</Text>
       {Object.entries(stats?.role_counts ?? {}).map(([role, count]) => (
@@ -208,6 +290,18 @@ export default function AdminDashboard({ navigation }: Props) {
 const styles = StyleSheet.create({
   errBox:         { backgroundColor: '#FFEBEE', margin: SPACING.md, borderRadius: RADIUS.md, padding: SPACING.md, borderLeftWidth: 3, borderLeftColor: '#C62828' },
   errTxt:         { color: '#C62828', fontSize: 13, fontWeight: '600' },
+  situation:      { flexDirection: 'row', alignItems: 'center', marginHorizontal: SPACING.md, marginTop: SPACING.md, padding: SPACING.md, backgroundColor: '#FFFBEB', borderRadius: RADIUS.md, borderLeftWidth: 4, borderLeftColor: '#F59E0B' },
+  sitText:        { flex: 1, fontSize: 12, color: COLORS.text, textTransform: 'capitalize' },
+  sitBold:        { fontWeight: '800' },
+  sitArrow:       { fontSize: 20, color: COLORS.subtext, fontWeight: '300' },
+  realCard:       { backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.md, padding: SPACING.md, elevation: 1 },
+  realLbl:        { fontSize: 10, fontWeight: '700', color: COLORS.subtext, textTransform: 'uppercase', letterSpacing: 0.5 },
+  realVal:        { fontSize: 28, fontWeight: '900', marginTop: 2 },
+  realSub:        { fontSize: 11, color: COLORS.subtext, marginTop: 2, marginBottom: 8 },
+  realTrack:      { height: 6, backgroundColor: '#F1F5F9', borderRadius: 999, overflow: 'hidden' },
+  realFill:       { height: '100%', borderRadius: 999 },
+  miniTrack:      { height: 4, backgroundColor: '#F1F5F9', borderRadius: 999, marginTop: 4, overflow: 'hidden' },
+  miniFill:       { height: '100%', backgroundColor: '#6366F1', borderRadius: 999 },
 
   // Top 3 summary
   topRow:         { flexDirection: 'row', padding: SPACING.md, gap: 8 },
