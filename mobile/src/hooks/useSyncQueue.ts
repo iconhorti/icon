@@ -4,6 +4,8 @@ import * as Network from 'expo-network';
 import { syncNow, queueCount } from '../db/syncQueue';
 import { useAuthContext } from '../context/AuthContext';
 import { API_URL } from '../constants/config';
+import { store } from '../store';
+import { baseApi } from '../store/api/baseApi';
 
 export function useSyncQueue(): { pendingCount: number; syncNow: () => Promise<void> } {
   const { user } = useAuthContext();
@@ -15,7 +17,14 @@ export function useSyncQueue(): { pendingCount: number; syncNow: () => Promise<v
 
   const attemptSync = useCallback(async () => {
     if (!user?.token) return;
-    await syncNow(user.token, API_URL);
+    const result = await syncNow(user.token, API_URL);
+    // The queue writes via raw fetch() (by design — it predates/bypasses RTK
+    // Query), so a successful background sync never invalidates the RTK cache
+    // on its own. Without this, screens with cached Projects/Farmers/Stats
+    // data stay stale even though the write succeeded moments earlier.
+    if (result.synced > 0) {
+      store.dispatch(baseApi.util.invalidateTags(['Projects', 'Farmers', 'Stats']));
+    }
     await updateCount();
   }, [user?.token, updateCount]);
 

@@ -19,7 +19,7 @@ export default function FarmListScreen({ navigation }: { navigation: NavigationP
       <TextInput style={styles.search} placeholder="Search farmer or village..." value={search} onChangeText={setSearch} />
       <View style={{ paddingHorizontal: SPACING.md }}>
         {isLoading ? null : filtered.length === 0 ? <EmptyState emoji="🌾" message="No farms found." /> : filtered.map(f => (
-          <TouchableOpacity key={f.id} style={styles.farmCard} onPress={() => navigation.navigate('IoT', { farmId: f.id })}>
+          <View key={f.id} style={styles.farmCard}>
             <View style={styles.farmHeader}>
               <Text style={styles.farmName}>{f.farmer_name}</Text>
               {f.alert_level !== 'none' && (
@@ -33,7 +33,20 @@ export default function FarmListScreen({ navigation }: { navigation: NavigationP
               <View style={[styles.progressFill, { width: `${Math.min(100, Math.round(f.dap / 1.2))}%` as any }]} />
             </View>
             <Text style={styles.progressLabel}>{f.dap} / ~120 days</Text>
-          </TouchableOpacity>
+            {/* Every action below needs to know WHICH farm — there's no "current
+                farm" context, so farmId is always passed explicitly. */}
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('IoT', { farmId: f.id })}>
+                <Text style={styles.actionBtnTxt}>🌡️ IoT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('Assessment', { farmId: f.id })}>
+                <Text style={styles.actionBtnTxt}>📊 Assess</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={() => navigation.navigate('VisitReport', { farmId: f.id })}>
+                <Text style={styles.actionBtnTxt}>📝 Visit Report</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         ))}
       </View>
     </ScrollView>
@@ -51,4 +64,7 @@ const styles = StyleSheet.create({
   progressBg:     { height: 5, backgroundColor: '#E0E0E0', borderRadius: 3, overflow: 'hidden' },
   progressFill:   { height: '100%', backgroundColor: PURPLE },
   progressLabel:  { fontSize: 10, color: COLORS.subtext, marginTop: 3, textAlign: 'right' },
+  actionRow:      { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
+  actionBtn:      { flex: 1, backgroundColor: '#F3E8FF', borderRadius: RADIUS.sm, paddingVertical: 7, alignItems: 'center' },
+  actionBtnTxt:   { fontSize: 11, fontWeight: '700', color: PURPLE },
 });

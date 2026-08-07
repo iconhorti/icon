@@ -33,6 +33,17 @@ export type OfficeStackParamList = {
   ProjectDetail: { id: number };
 };
 
+// ── Agronomist stack (inside Agronomist tabs) ────────────────────────────────
+// Screen names must match the Stack.Screen name= values in AgronomistTabs.tsx.
+// IoT/Assessment/VisitReport all require a farmId — there is no "current farm"
+// context, so it must come from navigation params, not a hardcoded value.
+export type AgronomistStackParamList = {
+  Farms:        undefined;
+  IoT:          { farmId: number };
+  Assessment:   { farmId: number };
+  VisitReport:  { farmId: number };
+};
+
 // ── Shared screen props helpers ───────────────────────────────────────────────
 export type KycReviewScreenProps       = StackScreenProps<OfficeStackParamList, 'KycReview'>;
 export type LoanDetailScreenProps      = StackScreenProps<LoanStackParamList, 'LoanDetail'>;
@@ -40,6 +51,8 @@ export type DisbursementScreenProps    = StackScreenProps<LoanStackParamList, 'D
 export type FarmerPipelineScreenProps  = StackScreenProps<LoanStackParamList, 'Pipeline'>;
 export type DealerFarmersScreenProps   = StackScreenProps<DealerStackParamList, 'DealerFarmers'>;
 export type AddFarmerScreenProps       = StackScreenProps<DealerStackParamList, 'AddFarmer'>;
+export type AssessmentScreenProps      = StackScreenProps<AgronomistStackParamList, 'Assessment'>;
+export type VisitReportScreenProps     = StackScreenProps<AgronomistStackParamList, 'VisitReport'>;
 
 // Suppress unused-import warning for BottomTabScreenProps (reserved for Phase 2)
 export type { BottomTabScreenProps };

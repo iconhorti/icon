@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAuthContext } from '../context/AuthContext';
+import { ROLES, isErectionRole } from '../constants/roles';
 import OfficeTabs     from './tabs/OfficeTabs';
 import LoanTabs       from './tabs/LoanTabs';
 import AdminTabs      from './tabs/AdminTabs';
@@ -9,21 +10,32 @@ import ErectionTabs   from './tabs/ErectionTabs';
 import AgronomistTabs from './tabs/AgronomistTabs';
 import AccessDeniedScreen from '../screens/shared/AccessDeniedScreen';
 
+/**
+ * Role → tab shell. Uses ROLES constants only (never bare "manager").
+ * agency_officer shares LoanTabs (pipeline + cases) with bank_officer;
+ * LoanDashboard switches panel by JWT role via /role-kpis.
+ */
 export default function TabNavigator() {
   const { user } = useAuthContext();
-  switch (user?.role) {
-    case 'office_staff':  return <OfficeTabs />;
-    case 'bank_officer':  return <LoanTabs />;
-    case 'admin':
-    case 'owner':         return <AdminTabs />;
-    case 'dealer':        return <DealerTabs />;
-    case 'farmer':        return <FarmerTabs />;
-    case 'project_manager':
-    case 'structure_contractor':
-    case 'drip_contractor':
-    case 'bed_contractor':
-    case 'plantation_contractor': return <ErectionTabs />;
-    case 'agronomist':             return <AgronomistTabs />;
-    default:              return <AccessDeniedScreen role={user?.role} />;
+  const role = user?.role;
+
+  switch (role) {
+    case ROLES.OFFICE_STAFF:
+      return <OfficeTabs />;
+    case ROLES.BANK_OFFICER:
+    case ROLES.AGENCY_OFFICER:
+      return <LoanTabs />;
+    case ROLES.ADMIN:
+    case ROLES.OWNER:
+      return <AdminTabs />;
+    case ROLES.DEALER:
+      return <DealerTabs />;
+    case ROLES.FARMER:
+      return <FarmerTabs />;
+    case ROLES.AGRONOMIST:
+      return <AgronomistTabs />;
+    default:
+      if (isErectionRole(role)) return <ErectionTabs />;
+      return <AccessDeniedScreen role={role} />;
   }
 }
