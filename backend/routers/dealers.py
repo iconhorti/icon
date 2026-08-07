@@ -5,6 +5,7 @@ Access: admin/owner/office_staff see all; dealer sees only themselves.
 """
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -41,15 +42,33 @@ def list_dealers(
         query = query.filter(models.Person.id == current_user.id)
 
     dealers = query.offset(skip).limit(limit).all()
+    dealer_ids = [d.id for d in dealers]
+
+    # Grouped counts in 2 queries total instead of 2 queries per dealer
+    # (was 2N queries for N dealers — see dashboard.py for the same pattern).
+    farmer_counts: dict = {}
+    project_counts: dict = {}
+    if dealer_ids:
+        farmer_counts = dict(
+            db.query(models.DealerFarmerMapping.dealer_id, func.count(models.DealerFarmerMapping.id))
+            .filter(
+                models.DealerFarmerMapping.dealer_id.in_(dealer_ids),
+                models.DealerFarmerMapping.is_active == 1,
+            )
+            .group_by(models.DealerFarmerMapping.dealer_id)
+            .all()
+        )
+        project_counts = dict(
+            db.query(models.Project.dealer_id, func.count(models.Project.id))
+            .filter(models.Project.dealer_id.in_(dealer_ids))
+            .group_by(models.Project.dealer_id)
+            .all()
+        )
 
     results = []
     for d in dealers:
-        farmer_count  = db.query(models.DealerFarmerMapping).filter(
-            models.DealerFarmerMapping.dealer_id == d.id
-        ).count()
-        project_count = db.query(models.Project).filter(
-            models.Project.dealer_id == d.id
-        ).count()
+        farmer_count  = farmer_counts.get(d.id, 0)
+        project_count = project_counts.get(d.id, 0)
         results.append({
             "id":            d.id,
             "first_name":    d.first_name,
@@ -88,7 +107,8 @@ def get_dealer(
         raise HTTPException(status_code=404, detail="Dealer not found.")
 
     mappings      = db.query(models.DealerFarmerMapping).filter(
-        models.DealerFarmerMapping.dealer_id == dealer_id
+        models.DealerFarmerMapping.dealer_id == dealer_id,
+        models.DealerFarmerMapping.is_active == 1,
     ).all()
     farmer_ids    = [m.farmer_id for m in mappings]
     project_count = db.query(models.Project).filter(models.Project.dealer_id == dealer_id).count()
@@ -128,18 +148,32 @@ def get_dealer_farmers(
         raise HTTPException(status_code=403, detail="Access denied.")
 
     mappings = db.query(models.DealerFarmerMapping).filter(
-        models.DealerFarmerMapping.dealer_id == dealer_id
+        models.DealerFarmerMapping.dealer_id == dealer_id,
+        models.DealerFarmerMapping.is_active == 1,
     ).all()
+    farmer_ids = [m.farmer_id for m in mappings]
+
+    # Batch-fetch farmers + their dealer projects (was 2 queries per mapping —
+    # one for the farmer, one for their project — i.e. 2N queries for N farmers).
+    farmers_by_id: dict = {}
+    projects_by_farmer: dict = {}
+    if farmer_ids:
+        farmers_by_id = {
+            f.id: f for f in
+            db.query(models.Person).filter(models.Person.id.in_(farmer_ids)).all()
+        }
+        for p in db.query(models.Project).filter(
+            models.Project.farmer_id.in_(farmer_ids),
+            models.Project.dealer_id == dealer_id,
+        ).all():
+            projects_by_farmer.setdefault(p.farmer_id, p)
 
     results = []
     for m in mappings:
-        farmer = db.query(models.Person).filter(models.Person.id == m.farmer_id).first()
+        farmer = farmers_by_id.get(m.farmer_id)
         if not farmer:
             continue
-        project = db.query(models.Project).filter(
-            models.Project.farmer_id == farmer.id,
-            models.Project.dealer_id == dealer_id,
-        ).first()
+        project = projects_by_farmer.get(farmer.id)
         results.append({
             "farmer_id":        farmer.id,
             "first_name":       farmer.first_name,
@@ -198,7 +232,8 @@ def get_dealer_stats(
         raise HTTPException(status_code=403, detail="Access denied.")
 
     farmer_count  = db.query(models.DealerFarmerMapping).filter(
-        models.DealerFarmerMapping.dealer_id == dealer_id
+        models.DealerFarmerMapping.dealer_id == dealer_id,
+        models.DealerFarmerMapping.is_active == 1,
     ).count()
 
     projects      = db.query(models.Project).filter(models.Project.dealer_id == dealer_id).all()

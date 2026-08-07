@@ -7,20 +7,20 @@ with open(os.path.join(path, "fresh_seed.py"), "r", encoding="utf-8") as f:
     code = f.read()
 
 buckets_str = """    BUCKETS = [
-        (50,  "Famremer Onbaord  Peinding at Delear Level", False, False, False, False, False),
-        (50,  "Peding At Office Level",                     False, False, False, False, False),
-        (100, "Bank Processing",                            False, False, False, False, False),
-        (50,  "GOC Application Pending",                    True,  False, False, False, False),
-        (100, "GOC Application Peindg",                     True,  True,  False, False, False),
-        (50,  "GOC- Approved But Not Issued",               True,  True,  False, False, False),
-        (20,  "Erection Start_peindig",                     True,  True,  False, False, False),
-        (50,  "Work Started and IN Progress",               True,  True,  True,  False, False),
-        (10,  "Subsidy Application Penidng",                True,  True,  True,  True,  False),
-        (5,   "Subsidy_ Visit Penindg",                     True,  True,  True,  True,  False),
-        (2,   "Subsdidy Visitr Report Not Sumtted",         True,  True,  True,  True,  False),
-        (3,   "Subsid Meeting Peding",                      True,  True,  True,  True,  False),
-        (2,   "Subsiy Not Released",                        True,  True,  True,  True,  False),
-        (8,   "Subsidy Released",                           True,  True,  True,  True,  True),
+        (50,  "farmer_onboarding",     False, False, False, False, False),
+        (50,  "document_collection",   False, False, False, False, False),
+        (100, "bank_processing",       False, False, False, False, False),
+        (50,  "goc_registration",      True,  False, False, False, False),
+        (100, "goc_registration",      True,  True,  False, False, False),
+        (50,  "goc_registration",      True,  True,  False, False, False),
+        (20,  "m2_structure_erection", True,  True,  False, False, False),
+        (50,  "m4_trellising",         True,  True,  True,  False, False),
+        (10,  "subsidy_claim",         True,  True,  True,  True,  False),
+        (5,   "agency_inspection",     True,  True,  True,  True,  False),
+        (2,   "agency_inspection",     True,  True,  True,  True,  False),
+        (3,   "committee_meeting",     True,  True,  True,  True,  False),
+        (2,   "committee_meeting",     True,  True,  True,  True,  False),
+        (8,   "subsidy_released",      True,  True,  True,  True,  True),
     ]"""
 
 # Substitute the BUCKETS variable

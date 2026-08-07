@@ -353,6 +353,11 @@ class ProjectBase(BaseModel):
 class ProjectCreate(ProjectBase):
     # Optimistic-concurrency token echoed back by the client on update (ignored on create).
     version: Optional[int] = None
+    # Cost fields the web ProjectForm "Bank & Financial" section collects and
+    # submits — these were missing here, so they were silently dropped by
+    # Pydantic's default extra="ignore" on both create AND update. See AUDIT_FIXES.md.
+    total_project_cost: Optional[float] = None
+    total_eligible_project_cost: Optional[float] = None
 
 class ProjectResponse(ProjectBase):
     id: int
@@ -366,7 +371,41 @@ class ProjectResponse(ProjectBase):
     total_eligible_project_cost: Optional[float] = 0.0
     total_project_cost: Optional[float] = 0.0
     total_subsidy_amount_proposed: Optional[float] = 0.0
-    
+
+    # Stage-workflow fields — see models.Project for the rationale.
+    loan_amount: Optional[float] = None
+    loan_sanction_date: Optional[date] = None
+    loan_account_number: Optional[str] = None
+
+    goc_number: Optional[str] = None
+    goc_date: Optional[date] = None
+
+    plantation_date: Optional[date] = None
+    seedlings_count: Optional[int] = None
+    agronomist_recommendations: Optional[str] = None
+
+    subsidy_claim_reference: Optional[str] = None
+    subsidy_claim_date: Optional[date] = None
+
+    subsidy_inspection_date: Optional[date] = None
+    subsidy_inspector_name: Optional[str] = None
+    subsidy_inspection_remarks: Optional[str] = None
+    subsidy_inspection_passed: Optional[int] = None
+
+    subsidy_meeting_date: Optional[date] = None
+    subsidy_meeting_decision: Optional[str] = None
+    subsidy_approved_amount: Optional[float] = None
+    subsidy_meeting_remarks: Optional[str] = None
+
+    subsidy_release_order_number: Optional[str] = None
+    subsidy_release_amount: Optional[float] = None
+    subsidy_release_date: Optional[date] = None
+    subsidy_bank_credit_date: Optional[date] = None
+
+    completion_certificate_date: Optional[date] = None
+    farmer_feedback: Optional[str] = None
+    farmer_rating: Optional[int] = None
+
     class Config:
         from_attributes = True
 
@@ -389,7 +428,11 @@ class ProjectDetailResponse(ProjectResponse):
     bank_branch: Optional[BankBranchResponse] = None
     area_type: Optional[ProjectAreaTypeResponse] = None
     items: List["ProjectItemResponse"] = []
-    
+    # Was already eager-loaded by the projects router but stripped on the way out
+    # since it wasn't declared here — TeamAssignmentCard.tsx's "assigned
+    # contractors" list was always empty as a result. See AUDIT_FIXES.md.
+    contractors: List["ProjectContractorResponse"] = []
+
     class Config:
         from_attributes = True
 

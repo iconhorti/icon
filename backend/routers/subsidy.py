@@ -99,17 +99,24 @@ def calculate_subsidy(
 
     area_multiplier = project.area_type.multiplier if project.area_type else 1.0
 
+    # Batch-fetch every Component referenced by this project's line items in a
+    # single query, instead of re-querying per item per category (was 3 query
+    # loops over the same item list — 3N queries for an N-item BOQ on every
+    # subsidy view/recalculation).
+    item_ids = {item.item_id for item in project.items}
+    components_by_id = {
+        c.id: c for c in
+        db.query(models.Component).filter(models.Component.id.in_(item_ids)).all()
+    } if item_ids else {}
+
     # ── 1. Structure Lines ────────────────────────────
     structures_eligible = 0.0
     structure_detail    = []
     for item in project.items:
         if item.line_type != "Structure":
             continue
-        ref = db.query(models.Component).filter(
-            models.Component.id == item.item_id,
-            models.Component.component_type == "Structure"
-        ).first()
-        if not ref or ref.eligible_cost_per_unit <= 0 or ref.is_subsidy_eligible != 1:
+        ref = components_by_id.get(item.item_id)
+        if not ref or ref.component_type != "Structure" or ref.eligible_cost_per_unit <= 0 or ref.is_subsidy_eligible != 1:
             continue
         qty           = item.qty or 0.0
         eligible_cost = qty * ref.eligible_cost_per_unit * area_multiplier
@@ -131,11 +138,8 @@ def calculate_subsidy(
     for item in project.items:
         if item.line_type != "Component":
             continue
-        ref = db.query(models.Component).filter(
-            models.Component.id == item.item_id,
-            models.Component.component_type == "Component"
-        ).first()
-        if not ref or ref.eligible_cost_per_unit <= 0:
+        ref = components_by_id.get(item.item_id)
+        if not ref or ref.component_type != "Component" or ref.eligible_cost_per_unit <= 0:
             continue
         qty           = item.qty or 0.0
         eligible_cost = ref.eligible_cost_per_unit * qty * area_multiplier
@@ -158,11 +162,8 @@ def calculate_subsidy(
     for item in project.items:
         if item.line_type != "Crop":
             continue
-        ref = db.query(models.Component).filter(
-            models.Component.id == item.item_id,
-            models.Component.component_type == "Crop"
-        ).first()
-        if not ref or ref.eligible_cost_per_unit <= 0:
+        ref = components_by_id.get(item.item_id)
+        if not ref or ref.component_type != "Crop" or ref.eligible_cost_per_unit <= 0:
             continue
         qty           = item.qty or 0.0
         crop_cost     = ref.eligible_cost_per_unit * qty * area_multiplier

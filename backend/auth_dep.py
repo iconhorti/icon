@@ -7,7 +7,7 @@ Role-based permission enforcement helper.
 import os
 import secrets
 import warnings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, status
@@ -52,8 +52,15 @@ else:
 ALGORITHM          = "HS256"
 TOKEN_EXPIRE_HOURS = 24
 
-# Paths that remain accessible even when a password-change is required
-_CHANGE_PWD_EXEMPT = ("/auth/change-password", "/auth/me", "/")
+# Paths that remain accessible even when a password-change is required.
+# Matched as EXACT full request paths — a suffix match ("endswith") would let
+# every collection route defined at "/" (e.g. POST /api/v1/projects/) through
+# the gate, because those paths also end in "/".
+_CHANGE_PWD_EXEMPT = {
+    "/api/v1/auth/change-password",
+    "/api/v1/auth/me",
+    "/",
+}
 
 security = HTTPBearer(auto_error=False)
 
@@ -68,7 +75,7 @@ ALL_INTERNAL_ROLES = STAFF_ROLES | FIELD_ROLES | CONTRACTOR_ROLES | {"bank_offic
 # ─── Token Creation ────────────────────────────────────────────────────────────
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(hours=TOKEN_EXPIRE_HOURS))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(hours=TOKEN_EXPIRE_HOURS))
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
@@ -117,7 +124,10 @@ def get_current_user(
 
     # Enforce mandatory password change at the API level
     if payload.get("must_change_pwd"):
-        if not any(request.url.path.endswith(p) for p in _CHANGE_PWD_EXEMPT):
+        # Normalize a trailing slash so /auth/me/ matches, but never treat
+        # arbitrary collection routes ("/api/v1/projects/") as the root path.
+        path = request.url.path if request.url.path == "/" else request.url.path.rstrip("/")
+        if path not in _CHANGE_PWD_EXEMPT:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Password change required. Please set a new password before continuing.",
@@ -202,10 +212,11 @@ def assert_project_access(
     if current_user.role == "dealer":
         if project.dealer_id == current_user.id:
             return
-        # Check dealer→farmer mapping using the caller's existing session
+        # Check dealer→farmer mapping using the caller's existing session.
+        # is_active must be checked — a deactivated mapping must NOT grant access.
         if db is not None:
             has_mapping = db.query(models.DealerFarmerMapping).filter_by(
-                dealer_id=current_user.id, farmer_id=project.farmer_id
+                dealer_id=current_user.id, farmer_id=project.farmer_id, is_active=1,
             ).first()
             if has_mapping:
                 return
@@ -225,12 +236,19 @@ def assert_project_access(
 def accessible_project_filter(current_user: models.Person, db: Session):
     """
     Bulk/SQL equivalent of assert_project_access — returns a SQLAlchemy filter
-    expression for models.Project (or None if the role has unrestricted access).
+    expression for models.Project (or None if the role has unrestricted access)
+    so list/pagination endpoints can push access control into the query instead
+    of fetching everything and checking access per-row in Python (which also
+    breaks LIMIT/OFFSET pagination, since rejected rows still count against the
+    page size).
+
+    Usage: expr = accessible_project_filter(current_user, db)
+           if expr is not None: query = query.filter(expr)
     """
     if is_staff_or_above(current_user):
-        return None
+        return None  # full access — no filter needed
     if current_user.role in {"project_manager", "bank_officer", "agency_officer", "agronomist"}:
-        return None
+        return None  # internal roles see all projects
 
     if current_user.role == "dealer":
         mapped_farmer_ids = [
@@ -254,4 +272,5 @@ def accessible_project_filter(current_user: models.Person, db: Session):
         ]
         return models.Project.id.in_(assigned_project_ids) if assigned_project_ids else sql_false()
 
+    # Unknown/unhandled role — deny everything rather than leak data.
     return sql_false()

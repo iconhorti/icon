@@ -72,7 +72,8 @@ def get_users(
         dealer_farmer_ids = [
             m.farmer_id for m in
             db.query(models.DealerFarmerMapping)
-              .filter(models.DealerFarmerMapping.dealer_id == current_user.id).all()
+              .filter(models.DealerFarmerMapping.dealer_id == current_user.id,
+                      models.DealerFarmerMapping.is_active == 1).all()
         ]
         query = query.filter(models.Person.id.in_(dealer_farmer_ids))
     elif role:
@@ -110,6 +111,7 @@ def get_user(
         mapping = db.query(models.DealerFarmerMapping).filter(
             models.DealerFarmerMapping.dealer_id == current_user.id,
             models.DealerFarmerMapping.farmer_id == user_id,
+            models.DealerFarmerMapping.is_active == 1,
         ).first()
         if mapping and user.role == "farmer":
             return user
@@ -260,8 +262,18 @@ def delete_user(
 
 # ─── HARD DELETE (owner only) ─────────────────────────────────────────────────
 @router.delete("/{user_id}/permanent", dependencies=[Depends(require_roles("owner"))])
-def hard_delete_user(user_id: int, db: Session = Depends(get_db)):
-    """Permanently delete a user. Owner only."""
+def hard_delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+):
+    """Permanently delete a user. Owner only. Cannot delete yourself — this is
+    the irreversible path, so the self-delete guard matters even more here
+    than on the soft-delete endpoint (no recovery, and could strand the system
+    with no owner left)."""
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="You cannot permanently delete your own account.")
+
     user = db.query(models.Person).filter(models.Person.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")

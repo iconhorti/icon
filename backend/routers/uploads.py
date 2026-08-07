@@ -12,10 +12,10 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 from database import get_db
-from auth_dep import get_current_user, assert_project_access
+from auth_dep import get_current_user, assert_project_access, accessible_project_filter
 import models
 import shutil
 import os
@@ -23,7 +23,10 @@ import uuid
 
 router = APIRouter(prefix="/uploads", tags=["Document Management"])
 
-UPLOAD_ROOT    = "uploads"
+# Anchored to the backend package dir, NOT the CWD — a CWD-relative path
+# silently created a second uploads tree whenever the server was started from
+# the repo root instead of backend/ (both trees exist in this repo as proof).
+UPLOAD_ROOT    = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
 MAX_FILE_SIZE  = 20 * 1_048_576   # 20 MB hard limit
 os.makedirs(UPLOAD_ROOT, exist_ok=True)
 
@@ -416,6 +419,7 @@ def list_all_documents(
 ):
     q = (
         db.query(models.ProjectDocument)
+        .join(models.Project, models.ProjectDocument.project_id == models.Project.id)
         .options(joinedload(models.ProjectDocument.project))
         .order_by(desc(models.ProjectDocument.created_at))
     )
@@ -423,20 +427,22 @@ def list_all_documents(
         project = get_project_or_404(project_id, db)
         assert_project_access(project, current_user, db)
         q = q.filter(models.ProjectDocument.project_id == project_id)
+    else:
+        # Push access control into the query instead of fetching everything and
+        # checking per-row in Python — that pattern also broke pagination,
+        # since rejected rows still consumed slots before the [:limit] slice.
+        access_filter = accessible_project_filter(current_user, db)
+        if access_filter is not None:
+            q = q.filter(access_filter)
     if document_type:
         q = q.filter(models.ProjectDocument.document_type == document_type)
     if verified is not None:
         q = q.filter(models.ProjectDocument.is_verified == verified)
 
-    docs = []
-    for doc in q.all():
-        try:
-            assert_document_access(doc, current_user, db)
-        except HTTPException:
-            continue
-        docs.append(doc)
+    total = q.count()
+    docs = q.limit(limit).all()
 
-    return {"documents": [document_to_dict(d) for d in docs[:limit]], "total": len(docs)}
+    return {"documents": [document_to_dict(d) for d in docs], "total": total}
 
 
 # ── PATCH /uploads/{doc_id}/verify — mark verified ───────────────────────────
@@ -453,7 +459,9 @@ def verify_document(
 
     doc.is_verified = 1
     doc.verified_by = current_user.id
-    doc.verified_at = datetime.utcnow()
+    # Naive-UTC on purpose — every other DateTime column in the DB is naive;
+    # storing one tz-aware value would mix conventions within the same table.
+    doc.verified_at = datetime.now(timezone.utc).replace(tzinfo=None)
     if remarks:
         doc.remarks = remarks
     db.commit()

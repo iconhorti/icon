@@ -145,7 +145,8 @@ def list_farmers(
         dealer_farmer_ids = [
             m.farmer_id for m in
             db.query(models.DealerFarmerMapping)
-              .filter(models.DealerFarmerMapping.dealer_id == current_user.id).all()
+              .filter(models.DealerFarmerMapping.dealer_id == current_user.id,
+                      models.DealerFarmerMapping.is_active == 1).all()
         ]
         query = query.filter(models.Person.id.in_(dealer_farmer_ids))
 
@@ -182,6 +183,7 @@ def get_farmer(
         mapping = db.query(models.DealerFarmerMapping).filter(
             models.DealerFarmerMapping.dealer_id == current_user.id,
             models.DealerFarmerMapping.farmer_id == farmer_id,
+            models.DealerFarmerMapping.is_active == 1,
         ).first()
         if mapping:
             return farmer
@@ -214,6 +216,7 @@ def update_farmer(
         mapping = db.query(models.DealerFarmerMapping).filter(
             models.DealerFarmerMapping.dealer_id == current_user.id,
             models.DealerFarmerMapping.farmer_id == farmer_id,
+            models.DealerFarmerMapping.is_active == 1,
         ).first()
         if not mapping:
             raise HTTPException(status_code=403, detail="Dealers can only edit their own farmers.")
@@ -279,6 +282,7 @@ def register_farmer(
         mapping = db.query(models.DealerFarmerMapping).filter(
             models.DealerFarmerMapping.dealer_id == current_user.id,
             models.DealerFarmerMapping.farmer_id == registration.farmer_id,
+            models.DealerFarmerMapping.is_active == 1,
         ).first()
         if not mapping:
             raise HTTPException(status_code=403, detail="Dealer can only register their own farmers.")

@@ -13,22 +13,38 @@ Permissions:
 
 import asyncio
 import json
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from pydantic import BaseModel
 from database import get_db, SessionLocal
-from auth_dep import get_current_user, require_roles, ADMIN_ROLES, decode_token
+from auth_dep import get_current_user, require_roles, ADMIN_ROLES, decode_token, create_access_token
 import models, schemas
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
 
+_STREAM_TOKEN_SCOPE = "notifications-stream"
+_STREAM_TOKEN_TTL_SECONDS = 60
+
 
 # ─── SSE STREAM ────────────────────────────────────────────────────────────────
-# Real-time push for the web app (mobile uses native push). EventSource can't set
-# an Authorization header, so the JWT comes via ?token=. Emits a `notification`
-# event whenever the user's unread set changes; the client refetches on it.
+# Real-time push for the web app (mobile uses native push). EventSource can't
+# set an Authorization header, so a token has to travel in the query string —
+# which lands in access logs and proxy logs. To keep the main 24h session JWT
+# out of logs, the client first exchanges its Bearer token for a short-lived
+# single-purpose stream token (below), and /stream accepts ONLY that scope.
+@router.post("/stream-token")
+def issue_stream_token(current_user: models.Person = Depends(get_current_user)):
+    """Exchange a normal Bearer token for a 60-second stream-only token."""
+    token = create_access_token(
+        {"sub": str(current_user.id), "scope": _STREAM_TOKEN_SCOPE},
+        expires_delta=timedelta(seconds=_STREAM_TOKEN_TTL_SECONDS),
+    )
+    return {"stream_token": token, "expires_in": _STREAM_TOKEN_TTL_SECONDS}
+
+
 @router.get("/stream")
 async def notifications_stream(request: Request, token: str = ""):
     if not token:
@@ -37,6 +53,11 @@ async def notifications_stream(request: Request, token: str = ""):
     user_id = payload.get("sub")
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid token")
+    # Only the dedicated short-lived stream token may ride the query string —
+    # a leaked/logged main session JWT must never be usable here (and vice
+    # versa: the stream token has no role claim, so it's useless elsewhere).
+    if payload.get("scope") != _STREAM_TOKEN_SCOPE:
+        raise HTTPException(status_code=401, detail="A stream token is required (POST /notifications/stream-token).")
     user_id = int(user_id)
 
     async def event_gen():

@@ -207,23 +207,34 @@ def get_contractor_tasks(
     if current_user.role not in CONTRACTOR_ROLES:
         raise HTTPException(status_code=403, detail="Not authorized.")
         
+    # Eager-load project (+ its farmer/village/taluka/district chain) so the
+    # loop below doesn't issue 2 extra queries per assignment (was 2N queries).
     assignments = (
         db.query(models.ProjectContractor)
-        .options(joinedload(models.ProjectContractor.skill))
+        .options(
+            joinedload(models.ProjectContractor.skill),
+            joinedload(models.ProjectContractor.project).joinedload(models.Project.farmer),
+            joinedload(models.ProjectContractor.project)
+                .joinedload(models.Project.village)
+                .joinedload(models.Village.taluka)
+                .joinedload(models.Taluka.district),
+        )
         .filter(models.ProjectContractor.contractor_id == current_user.id)
         .all()
     )
 
     result = []
     for a in assignments:
-        project = db.query(models.Project).filter(models.Project.id == a.project_id).first()
-        farmer  = db.query(models.Person).filter(models.Person.id == project.farmer_id).first() if project else None
+        project = a.project
+        farmer  = project.farmer if project else None
         result.append({
             "assignment_id":  a.id,
             "project_id":     a.project_id,
             "project_code":   project.project_code if project else None,
             "farmer_name":    (farmer.full_name or farmer.first_name) if farmer else None,
-            "district":       project.village.taluka.district.name if getattr(project, 'village', None) else None,
+            "district":       (project.village.taluka.district.name
+                               if project and project.village and project.village.taluka
+                               and project.village.taluka.district else None),
             "state":          "Maharashtra" if getattr(project, 'village', None) else None,
             "project_stage":  project.project_stage if project else None,
             "status":        a.status,

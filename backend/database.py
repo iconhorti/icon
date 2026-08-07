@@ -14,7 +14,12 @@ from sqlalchemy.ext.declarative import declarative_base
 
 _DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
-if _DATABASE_URL:
+if _DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(
+        _DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
+elif _DATABASE_URL:
     # PostgreSQL (or any other SQLAlchemy-compatible DSN)
     # psycopg2 connection pooling: pool_size=5, max_overflow=10
     engine = create_engine(

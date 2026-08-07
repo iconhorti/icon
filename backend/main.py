@@ -1,5 +1,7 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import logging
 import os
 
 from database import engine, Base, SessionLocal
@@ -10,14 +12,15 @@ from routers import (
 )
 import models
 
-# 1. Initialize the Database (Creates all tables from models.py if they don't exist)
-Base.metadata.create_all(bind=engine)
+logger = logging.getLogger("icon.startup")
 
 
-# 1a. Lightweight idempotent column migrations. create_all() creates NEW tables
-#     but never ALTERs existing ones, so columns added to pre-existing tables are
-#     applied here (safe to run on every startup).
 def _run_migrations():
+    """
+    Lightweight idempotent column migrations. create_all() creates NEW tables
+    but never ALTERs existing ones, so columns added to pre-existing tables are
+    applied here (safe to run on every startup).
+    """
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
 
@@ -30,8 +33,7 @@ def _run_migrations():
             with engine.begin() as conn:
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {ddl_type}{default_clause}"))
         except Exception:
-            # Table may not exist yet, or the engine disallows it — non-fatal.
-            pass
+            logger.exception("Failed to add column %s.%s", table, column)
 
     def add_index_if_missing(table: str, column: str):
         try:
@@ -51,14 +53,41 @@ def _run_migrations():
     add_column_if_missing("project_milestones", "version", "INTEGER", "1")
     add_column_if_missing("project_milestones", "updated_at", "DATETIME")
 
-    # Query-pattern indexes — these tables are queried by these columns constantly
-    # (project ownership checks, per-user notification lists) but predate the
-    # index=True now declared on the model columns.
+    # Stage-workflow fields — back web StageActionPanel forms (bank → completed)
+    for col, ddl in (
+        ("project_stage_entered_at", "DATETIME"),
+        ("loan_amount", "FLOAT"),
+        ("loan_sanction_date", "DATE"),
+        ("loan_account_number", "VARCHAR(100)"),
+        ("goc_number", "VARCHAR(100)"),
+        ("goc_date", "DATE"),
+        ("plantation_date", "DATE"),
+        ("seedlings_count", "INTEGER"),
+        ("agronomist_recommendations", "TEXT"),
+        ("subsidy_claim_reference", "VARCHAR(100)"),
+        ("subsidy_claim_date", "DATE"),
+        ("subsidy_inspection_date", "DATE"),
+        ("subsidy_inspector_name", "VARCHAR(200)"),
+        ("subsidy_inspection_remarks", "TEXT"),
+        ("subsidy_inspection_passed", "INTEGER"),
+        ("subsidy_meeting_date", "DATE"),
+        ("subsidy_meeting_decision", "VARCHAR(20)"),
+        ("subsidy_approved_amount", "FLOAT"),
+        ("subsidy_meeting_remarks", "TEXT"),
+        ("subsidy_release_order_number", "VARCHAR(100)"),
+        ("subsidy_release_amount", "FLOAT"),
+        ("subsidy_release_date", "DATE"),
+        ("subsidy_bank_credit_date", "DATE"),
+        ("completion_certificate_date", "DATE"),
+        ("farmer_feedback", "TEXT"),
+        ("farmer_rating", "INTEGER"),
+    ):
+        add_column_if_missing("projects", col, ddl)
+
     add_index_if_missing("projects", "farmer_id")
     add_index_if_missing("projects", "dealer_id")
     add_index_if_missing("notifications", "user_id")
 
-_run_migrations()
 
 # 1b. Seed document_types master table if empty
 def _seed_document_types():
@@ -108,20 +137,30 @@ def _seed_document_types():
                 ))
             db.commit()
     except Exception:
+        logger.exception("Seeding document_types failed")
         db.rollback()
     finally:
         db.close()
 
-_seed_document_types()
 
-# Ensure uploads directory exists
-os.makedirs("uploads", exist_ok=True)
+# 2. Initialize the FastAPI App.
+#    Schema creation, migrations, and seeding run in the lifespan handler —
+#    NOT at import time — so importing this module (tests, scripts, tooling)
+#    has no side effects on the database.
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    _run_migrations()
+    _seed_document_types()
+    os.makedirs("uploads", exist_ok=True)
+    yield
 
-# 2. Initialize the FastAPI App
+
 app = FastAPI(
     title="ICON Greenhouse ERP",
     description="Enterprise API for Manufacturing, Agronomy, and Dealership Management",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=_lifespan,
 )
 
 # 3. Security: Allow Mobile App & Web to communicate with this Backend

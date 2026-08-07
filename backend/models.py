@@ -403,6 +403,7 @@ class Project(Base):
 
     # Status
     project_stage     = Column(String(50), default="farmer_onboarding", index=True)
+    project_stage_entered_at = Column(DateTime, default=func.now())
     priority          = Column(String(10), default="normal")
     expected_start_date = Column(Date)
     expected_end_date   = Column(Date)
@@ -423,6 +424,43 @@ class Project(Base):
     last_site_visit_date = Column(Date)
     last_site_visit_by   = Column(Integer, ForeignKey("person.id"))
     site_visit_count     = Column(Integer, default=0)
+
+    # ── Stage-workflow fields (bank/GOC/agronomist/subsidy/completion) ──────────
+    # These back the web ProjectDetail "StageActionPanel" forms for stages
+    # bank_processing through completed. Added because the panels were
+    # collecting this data and silently discarding it — see AUDIT_FIXES.md.
+    loan_amount                  = Column(Float)
+    loan_sanction_date           = Column(Date)
+    loan_account_number          = Column(String(100))
+
+    goc_number                   = Column(String(100))
+    goc_date                     = Column(Date)
+
+    plantation_date              = Column(Date)
+    seedlings_count              = Column(Integer)
+    agronomist_recommendations   = Column(Text)
+
+    subsidy_claim_reference      = Column(String(100))
+    subsidy_claim_date           = Column(Date)
+
+    subsidy_inspection_date      = Column(Date)
+    subsidy_inspector_name       = Column(String(200))
+    subsidy_inspection_remarks   = Column(Text)
+    subsidy_inspection_passed    = Column(Integer)  # NULL = not yet inspected, 0/1 = fail/pass
+
+    subsidy_meeting_date         = Column(Date)
+    subsidy_meeting_decision     = Column(String(20))  # approved | rejected | pending
+    subsidy_approved_amount      = Column(Float)
+    subsidy_meeting_remarks      = Column(Text)
+
+    subsidy_release_order_number = Column(String(100))
+    subsidy_release_amount       = Column(Float)
+    subsidy_release_date         = Column(Date)
+    subsidy_bank_credit_date     = Column(Date)
+
+    completion_certificate_date  = Column(Date)
+    farmer_feedback               = Column(Text)
+    farmer_rating                 = Column(Integer)  # 1-5
 
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())

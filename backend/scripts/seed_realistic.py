@@ -13,7 +13,7 @@ Run from the backend folder:
     cd backend
     python seed_realistic.py
 
-Then run migrate_stages.py to convert stage strings → slugs (fixes KPI counts).
+Stages are written as slugs from constants/stages.py — no migrate_stages.py pass needed.
 """
 import sys, os, random
 from datetime import datetime, timedelta
@@ -131,55 +131,65 @@ LAST_NAMES_BY_STATE = {
 # Columns: count | exact stage string | months_min | months_max
 #          | bank_milestone_done | goc_milestone_done
 #          | construction_milestone_done | subsidy_released_done
+# Stage strings MUST be slugs from constants/stages.py (never human labels/typos).
+# Counts preserve the original funnel shape; sub-states collapsed onto their slug.
 STAGE_BUCKETS = [
     # ── ONBOARDING (50) ───────────────────────────────────────────────────────
-    ( 50, "Famremer Onbaord Peinding at Delear Level",                                          1,  3, False, False, False, False),
+    ( 50, "farmer_onboarding",    1,  3, False, False, False, False),
 
     # ── OFFICE / DPR (45) ─────────────────────────────────────────────────────
-    ( 45, "Peding At Office Level",                                                              3,  5, False, False, False, False),
+    ( 45, "document_collection",  3,  5, False, False, False, False),
 
     # ── BANK (101 + 30) ───────────────────────────────────────────────────────
-    (101, "Bank Submission Pending",                                                             4,  7, False, False, False, False),
-    ( 30, "Bank Processing-Sanctioned Not Received",                                            5,  7, False, False, False, False),
+    (101, "bank_processing",      4,  7, False, False, False, False),
+    ( 30, "bank_processing",      5,  7, False, False, False, False),
 
     # ── GOC (55 + 55 + 33) ───────────────────────────────────────────────────
-    ( 55, "GOC Application Pending",                                                            5,  8, True,  False, False, False),
-    ( 55, "GOC Application Done-Approval Pending",                                              5,  9, True,  False, False, False),
-    ( 33, "GOC- Approved But Not Issued",                                                       6,  9, True,  False, False, False),
+    ( 55, "goc_registration",     5,  8, True,  False, False, False),
+    ( 55, "goc_registration",     5,  9, True,  False, False, False),
+    ( 33, "goc_registration",     6,  9, True,  False, False, False),
 
     # ── SITE VISIT & DESIGN (33 + 20) ─────────────────────────────────────────
-    ( 33, "Project-Site Visit Pending",                                                         7, 10, True,  True,  False, False),
-    ( 20, "Project-Site Completed-Design Pending",                                              7, 10, True,  True,  False, False),
+    ( 33, "site_visit",           7, 10, True,  True,  False, False),
+    ( 20, "design_boq",           7, 10, True,  True,  False, False),
 
     # ── CONTRACTOR ASSIGNMENT (12) ────────────────────────────────────────────
-    ( 12, "Project-Assignement To Conractors Pending",                                         7, 10, True,  True,  False, False),
+    ( 12, "m1_foundation",        7, 10, True,  True,  False, False),
 
     # ── ERECTION (22 + 17) ────────────────────────────────────────────────────
-    ( 22, "Erection Start_pending",                                                             8, 11, True,  True,  False, False),
-    ( 17, "Erection Started and IN Progress",                                                   9, 11, True,  True,  False, False),
+    ( 22, "m2_structure_erection", 8, 11, True,  True,  False, False),
+    ( 17, "m2_structure_erection", 9, 11, True,  True,  False, False),
 
     # ── INSPECTION (5 + 4) ────────────────────────────────────────────────────
-    (  5, "Porject-Inspection Pending",                                                         9, 12, True,  True,  True,  False),
-    (  4, "Porject-Inspection Report Pending",                                                 10, 12, True,  True,  True,  False),
+    (  5, "m5_drip_fitting",      9, 12, True,  True,  True,  False),
+    (  4, "m5_drip_fitting",     10, 12, True,  True,  True,  False),
 
     # ── SUBSIDY APPLICATION (3) ───────────────────────────────────────────────
-    (  3, "Subsidy Application Penidng",                                                       10, 12, True,  True,  True,  False),
+    (  3, "subsidy_claim",       10, 12, True,  True,  True,  False),
 
     # ── SUBSIDY VISIT (3 + 5) ─────────────────────────────────────────────────
-    (  3, "Subsidy_ Visit Penindg",                                                            10, 12, True,  True,  True,  False),
-    (  5, "Subsdidy Visit Report Not Submitted",                                               10, 12, True,  True,  True,  False),
+    (  3, "agency_inspection",   10, 12, True,  True,  True,  False),
+    (  5, "agency_inspection",   10, 12, True,  True,  True,  False),
 
-    # ── COMMITTEE MEETING (2) ─────────────────────────────────────────────────
-    (  2, "Subsid Meeting Peding",                                                             11, 12, True,  True,  True,  False),
+    # ── COMMITTEE MEETING (2 + 1 awaiting release) ────────────────────────────
+    (  2, "committee_meeting",   11, 12, True,  True,  True,  False),
+    (  1, "committee_meeting",   11, 12, True,  True,  True,  False),
 
-    # ── TERMINAL (1 + 4) ──────────────────────────────────────────────────────
-    (  1, "Subsiy Not Released",                                                               11, 12, True,  True,  True,  False),
-    (  4, "Subsidy Released",                                                                  11, 12, True,  True,  True,  True ),
+    # ── TERMINAL (4) ──────────────────────────────────────────────────────────
+    (  4, "subsidy_released",    11, 12, True,  True,  True,  True ),
 ]
 
 # Sanity check
 _TOTAL = sum(b[0] for b in STAGE_BUCKETS)
 assert _TOTAL == 500, f"Expected 500 projects, got {_TOTAL}"
+
+# Guard: every bucket must use a known slug (prevents reintroducing typo stages)
+_backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _backend_root not in sys.path:
+    sys.path.insert(0, _backend_root)
+from constants.stages import ALL_STAGES  # noqa: E402
+_bad_slugs = sorted({stage for _, stage, *_ in STAGE_BUCKETS if stage not in ALL_STAGES})
+assert not _bad_slugs, f"Unknown stage slug(s) in STAGE_BUCKETS: {_bad_slugs}"
 
 
 def phone(seed: int) -> str:
