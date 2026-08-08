@@ -20,15 +20,20 @@ interface ProjectFormDocumentsProps {
   savedProjectId: number | string | null;
   setActiveTab: (tab: string) => void;
   docTypesList?: string[];
+  isJointLand?: boolean;
 }
+
+const NOC_DOC_TYPE = 'NOC / Land Owner Consent';
 
 export default function ProjectFormDocuments({
   existingDocs, docTypesByCategory, docType, setDocType,
   docFile, setDocFile, docRemarks, setDocRemarks,
   docUploading, handleDocUpload, handleDeleteDoc, docError,
   fileInputRef, navigate, fmtSize, savedProjectId,
-  setActiveTab, docTypesList = [],
+  setActiveTab, docTypesList = [], isJointLand = false,
 }: ProjectFormDocumentsProps) {
+  const hasNocUploaded = existingDocs.some(d => d.document_type === NOC_DOC_TYPE);
+
   return (
     <div className="animate-fade-in">
           {!savedProjectId ? (
@@ -45,6 +50,22 @@ export default function ProjectFormDocuments({
             </div>
           ) : (
             <>
+              {isJointLand && !hasNocUploaded && (
+                <div style={{
+                  marginBottom: '1rem', fontSize: '0.85rem', color: '#92400e', background: '#fffbeb',
+                  border: '1px solid #fde68a', borderRadius: 8, padding: '0.75rem 1rem',
+                }}>
+                  <strong>Joint land — NOC required:</strong> Upload the signed <strong>{NOC_DOC_TYPE}</strong> from every owner listed on the NOC.
+                </div>
+              )}
+              {isJointLand && hasNocUploaded && (
+                <div style={{
+                  marginBottom: '1rem', fontSize: '0.85rem', color: '#166534', background: '#f0fdf4',
+                  border: '1px solid #bbf7d0', borderRadius: 8, padding: '0.75rem 1rem',
+                }}>
+                  ✓ {NOC_DOC_TYPE} is on file.
+                </div>
+              )}
               {/* Upload Panel */}
               <div className="glass-card detail-card" style={{ marginBottom: '1.25rem' }}>
                 <div className="card-header">

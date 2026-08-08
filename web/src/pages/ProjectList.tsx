@@ -31,6 +31,9 @@ const priorityTone = (priority: string = ''): BadgeTone => {
   return 'neutral';
 };
 
+const isJointLand = (row: { ownership_type?: string; land_owner_count?: number }): boolean =>
+  row.ownership_type === 'joint' || (row.land_owner_count ?? 0) > 1;
+
 // ─── Column definitions (all named so the picker can read them) ──────────────
 // Built as a function so headers can be translated via t().
 const buildColDefs = (t: (k: string) => string): ColDef[] => [
@@ -53,6 +56,7 @@ const buildColDefs = (t: (k: string) => string): ColDef[] => [
         <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Avatar name={name} size={22} />
           {name}
+          {isJointLand(p.data) && <Badge tone="pending">Joint land</Badge>}
         </span>
       );
     },

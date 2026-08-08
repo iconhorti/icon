@@ -182,11 +182,17 @@ const Masters = () => {
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => { const { name, value } = e.target; setForm(p => ({ ...p, [name]: value })); };
 
   const handleSave = async (): Promise<void> => {
-    const nameOk = activeTab === 'bank_branches'
-      ? !!String(form.branch_name ?? '').trim()
-      : !!String(form.name ?? '').trim();
-    if (!nameOk) {
-      setFormError(activeTab === 'bank_branches' ? 'Branch name is required.' : 'Name is required.');
+    if (activeTab === 'bank_branches') {
+      if (!String(form.branch_name ?? '').trim()) {
+        setFormError('Branch name is required.');
+        return;
+      }
+      if (!form.bank_id) {
+        setFormError('Please select a bank.');
+        return;
+      }
+    } else if (!String(form.name ?? '').trim()) {
+      setFormError('Name is required.');
       return;
     }
     setSaving(true); setFormError('');
@@ -705,7 +711,6 @@ const Masters = () => {
           <div className="glass-card table-container">
             {error && <div className="alert alert-danger" style={{ margin: '1rem 1.5rem 0' }}>{error}</div>}
             {renderTable()}
-            {allRows.length > 0 }
           </div>
         </>
       )}

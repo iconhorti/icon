@@ -105,6 +105,8 @@ def get_bank_branches(
              dependencies=[Depends(require_roles("admin", "owner"))])
 def create_branch(branch: schemas.BankBranchCreate, db: Session = Depends(get_db)):
     """Create a bank branch. Admin/Owner only."""
+    if not (branch.branch_name or "").strip():
+        raise HTTPException(status_code=400, detail="Branch name is required.")
     new_branch = models.BankBranch(**branch.model_dump())
     db.add(new_branch)
     db.commit()
@@ -119,6 +121,8 @@ def update_branch(branch_id: int, updates: BranchUpdate, db: Session = Depends(g
     if not branch:
         raise HTTPException(status_code=404, detail="Branch not found.")
     update_data = updates.model_dump(exclude_unset=True)
+    if "branch_name" in update_data and not (update_data["branch_name"] or "").strip():
+        raise HTTPException(status_code=400, detail="Branch name is required.")
     for key, value in update_data.items():
         if hasattr(branch, key):
             setattr(branch, key, value)

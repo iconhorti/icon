@@ -583,7 +583,7 @@ const ProjectForm = () => {
 
       {activeTab === 'components' && <ProjectFormComponents allLineItems={allLineItems} getSelectedItem={getSelectedItem} toggleItem={toggleItem} updateQty={updateQty} totals={totals} submitting={submitting} handleSubmit={handleSubmit} setActiveTab={setActiveTab} selectedItems={selectedItems} savedProjectId={savedProjectId} userRole={userRole} error={error} />}
 
-      {activeTab === 'documents' && <ProjectFormDocuments existingDocs={existingDocs} docTypesByCategory={docTypesByCategory} docType={docType} setDocType={setDocType} docFile={docFile} setDocFile={setDocFile} docRemarks={docRemarks} setDocRemarks={setDocRemarks} docUploading={docUploading} handleDocUpload={handleDocUpload} handleDeleteDoc={handleDeleteDoc} docError={docError} fileInputRef={fileInputRef} navigate={navigate} fmtSize={fmtSize} savedProjectId={savedProjectId} setActiveTab={setActiveTab} docTypesList={FALLBACK_DOC_TYPES} />}
+      {activeTab === 'documents' && <ProjectFormDocuments existingDocs={existingDocs} docTypesByCategory={docTypesByCategory} docType={docType} setDocType={setDocType} docFile={docFile} setDocFile={setDocFile} docRemarks={docRemarks} setDocRemarks={setDocRemarks} docUploading={docUploading} handleDocUpload={handleDocUpload} handleDeleteDoc={handleDeleteDoc} docError={docError} fileInputRef={fileInputRef} navigate={navigate} fmtSize={fmtSize} savedProjectId={savedProjectId} setActiveTab={setActiveTab} docTypesList={FALLBACK_DOC_TYPES} isJointLand={landMeta.ownership_type === 'joint' || landOwners.filter(o => o.owner_name?.trim()).length > 1} />}
     </div>
   );
 };

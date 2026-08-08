@@ -146,6 +146,11 @@ const ProjectDetail = () => {
   const canAdvance        = CAN_ADVANCE[role] && currentStageIndex < WORKFLOW_STAGES.length - 1;
   const canRevert         = CAN_REVERT[role]  && currentStageIndex > 0;
 
+  const landOwnerCount = (project as any).land_owners?.length ?? 0;
+  const isJointLand = (project as any).ownership_type === 'joint' || landOwnerCount > 1;
+  const nocDocType = 'NOC / Land Owner Consent';
+  const hasNocUploaded = requiredDocs?.presentSet?.has(nocDocType) ?? false;
+
   return (
     <div className="project-detail-container animate-fade-in">
       {/* ── Header ── */}
@@ -253,16 +258,33 @@ const ProjectDetail = () => {
               {(project as any).ownership_type && (
                 <div className="info-item">
                   <span className="info-label">Ownership</span>
-                  <span className="info-value" style={{ textTransform: 'capitalize' }}>{(project as any).ownership_type}</span>
+                  <span className="info-value" style={{ textTransform: 'capitalize' }}>
+                    {(project as any).ownership_type}
+                    {isJointLand && landOwnerCount > 0 && (
+                      <span style={{ marginLeft: 8, fontSize: '0.82rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                        · {landOwnerCount} owner{landOwnerCount !== 1 ? 's' : ''} on NOC
+                      </span>
+                    )}
+                  </span>
                 </div>
               )}
-              {(project as any).ownership_type === 'joint' && (
+              {isJointLand && !hasNocUploaded && (
                 <div className="info-item" style={{ gridColumn: '1 / -1' }}>
                   <div style={{
                     fontSize: '0.82rem', color: '#92400e', background: '#fffbeb',
                     border: '1px solid #fde68a', borderRadius: 8, padding: '0.6rem 0.75rem',
                   }}>
-                    <strong>Joint land:</strong> Please upload the signed <strong>NOC / Land Owner Consent</strong> from all owners under Land Documents.
+                    <strong>Joint land:</strong> Please upload the signed <strong>{nocDocType}</strong> from all owners (edit project → Land Documents).
+                  </div>
+                </div>
+              )}
+              {isJointLand && hasNocUploaded && (
+                <div className="info-item" style={{ gridColumn: '1 / -1' }}>
+                  <div style={{
+                    fontSize: '0.82rem', color: '#166534', background: '#f0fdf4',
+                    border: '1px solid #bbf7d0', borderRadius: 8, padding: '0.6rem 0.75rem',
+                  }}>
+                    ✓ {nocDocType} uploaded.
                   </div>
                 </div>
               )}
