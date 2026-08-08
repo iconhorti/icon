@@ -92,7 +92,7 @@ def update_area_type(area_type_id: int, updates: AreaTypeUpdate, db: Session = D
     obj = db.query(models.ProjectAreaType).filter(models.ProjectAreaType.id == area_type_id).first()
     if not obj:
         raise HTTPException(status_code=404, detail="Area type not found.")
-    for key, value in updates.model_dump(exclude_none=True).items():
+    for key, value in updates.model_dump(exclude_unset=True).items():
         setattr(obj, key, value)
     db.commit()
     return {"message": "Area type updated."}
@@ -130,7 +130,7 @@ def update_agency(agency_id: int, updates: AgencyUpdate, db: Session = Depends(g
     obj = db.query(models.GovernmentAgency).filter(models.GovernmentAgency.id == agency_id).first()
     if not obj:
         raise HTTPException(status_code=404, detail="Agency not found.")
-    for key, value in updates.model_dump(exclude_none=True).items():
+    for key, value in updates.model_dump(exclude_unset=True).items():
         setattr(obj, key, value)
     db.commit()
     return {"message": "Agency updated."}
@@ -203,7 +203,7 @@ def get_states(db: Session = Depends(get_db)):
 @router.post("/states", response_model=StateOut, status_code=201,
              dependencies=[Depends(require_roles("admin", "owner"))])
 def create_state(data: StateCreate, db: Session = Depends(get_db)):
-    obj = models.State(name=data.name)
+    obj = models.State(**data.model_dump())
     db.add(obj); db.commit(); db.refresh(obj)
     return obj
 
@@ -212,7 +212,7 @@ def create_state(data: StateCreate, db: Session = Depends(get_db)):
 def update_state(state_id: int, data: StateUpdate, db: Session = Depends(get_db)):
     obj = db.query(models.State).filter(models.State.id == state_id).first()
     if not obj: raise HTTPException(404, "State not found.")
-    for key, value in data.model_dump(exclude_none=True).items():
+    for key, value in data.model_dump(exclude_unset=True).items():
         setattr(obj, key, value)
     db.commit(); db.refresh(obj)
     return obj

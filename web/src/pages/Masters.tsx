@@ -1,4 +1,4 @@
-import { Fragment, useState, useEffect, useMemo, type ChangeEvent } from 'react';
+import { Fragment, useState, useEffect, useMemo, useRef, type ChangeEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useRequireRole } from '../components/RequireRole';
@@ -45,6 +45,36 @@ const EMPTY: Record<string, any> = {
   skills:        { name: '', code: '', description: '' },
 };
 
+const NUMERIC_FIELDS = new Set([
+  'eligible_cost_per_unit', 'subsidy_rate_per_unit', 'min_qty', 'max_qty',
+  'default_qty', 'multiplier', 'bank_id', 'is_active', 'is_subsidy_eligible',
+]);
+
+/** Optional text fields that may be cleared to null on edit. */
+const NULLABLE_TEXT: Record<string, Set<string>> = {
+  components:    new Set(['category', 'variant_code', 'unit_type', 'description']),
+  area_types:    new Set(['description']),
+  agencies:      new Set(['short_code', 'description', 'website']),
+  banks:         new Set(['short_name']),
+  bank_branches: new Set(['branch_code', 'ifsc', 'address', 'phone', 'email']),
+  skills:        new Set(['code', 'description']),
+};
+
+function buildMasterPayload(tab: string, form: Record<string, any>, isEdit: boolean): Record<string, any> {
+  const payload: Record<string, any> = {};
+  const nullable = NULLABLE_TEXT[tab] ?? new Set<string>();
+  for (const key of Object.keys(EMPTY[tab] ?? {})) {
+    let value = form[key];
+    if (typeof value === 'string') value = value.trim();
+    if (value === '' || value === undefined) {
+      if (isEdit && nullable.has(key)) payload[key] = null;
+      continue;
+    }
+    payload[key] = NUMERIC_FIELDS.has(key) ? Number(value) : value;
+  }
+  return payload;
+}
+
 // ─── Locations sub‑tab config ─────────────────────────────────────────────────
 const LOC_LEVELS = [
   { key: 'states',    label: 'State',    plural: 'States' },
@@ -82,6 +112,8 @@ const Masters = () => {
   const [locMode, setLocMode]           = useState<string>('list');     // list | add | edit
   const [locSaving, setLocSaving]       = useState<boolean>(false);
   const [locFormError, setLocFormError] = useState<string>('');
+
+  const formRef = useRef<HTMLDivElement | null>(null);
 
   const isLocations = activeTab === 'locations';
 
@@ -144,22 +176,28 @@ const Masters = () => {
     const filled: Record<string, any> = {};
     Object.keys(blank).forEach(k => { filled[k] = item[k] !== undefined && item[k] !== null ? item[k] : blank[k]; });
     setForm(filled); setFormError(''); setMode('edit');
+    requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   };
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => { const { name, value } = e.target; setForm(p => ({ ...p, [name]: value })); };
 
   const handleSave = async (): Promise<void> => {
-    if (!form.name) { setFormError('Name is required.'); return; }
+    const nameOk = activeTab === 'bank_branches'
+      ? !!String(form.branch_name ?? '').trim()
+      : !!String(form.name ?? '').trim();
+    if (!nameOk) {
+      setFormError(activeTab === 'bank_branches' ? 'Branch name is required.' : 'Name is required.');
+      return;
+    }
     setSaving(true); setFormError('');
-    const payload: Record<string, any> = { ...form };
-    ['eligible_cost_per_unit','subsidy_rate_per_unit','min_qty','max_qty','default_qty','multiplier','bank_id']
-      .forEach(k => { if (payload[k] !== '' && payload[k] !== undefined) payload[k] = Number(payload[k]); });
-    Object.keys(payload).forEach(k => { if (payload[k] === '') delete payload[k]; });
+    const payload = buildMasterPayload(activeTab, form, !!editId);
     try {
       if (editId) await UPDATERS[activeTab](editId, payload);
       else        await CREATORS[activeTab](payload);
       setMode('list');
-      qc.invalidateQueries({ queryKey: qk.lookup(activeTab) });
+      await qc.refetchQueries({ queryKey: qk.lookup(activeTab) });
+      if (activeTab === 'bank_branches') await qc.refetchQueries({ queryKey: qk.lookup('banks') });
+      toast(`${tabLabel} saved.`, 'success');
     } catch (err: any) { setFormError(err.response?.data?.detail || 'Save failed.'); }
     finally { setSaving(false); }
   };
@@ -195,14 +233,17 @@ const Masters = () => {
     setLocSaving(true); setLocFormError('');
     const api = LOC_API[locLevel];
     const payload: Record<string, any> = { name: locForm.name.trim() };
-    if (locLevel === 'states' && locForm.short_name?.trim()) payload.short_name = locForm.short_name.trim();
+    if (locLevel === 'states') payload.short_name = locForm.short_name?.trim() || null;
     if (locLevel === 'districts') payload.state_id    = Number(locForm.state_id);
     if (locLevel === 'talukas')   payload.district_id = Number(locForm.district_id);
     if (locLevel === 'villages')  { payload.taluka_id = Number(locForm.taluka_id); if (locForm.pincode) payload.pincode = locForm.pincode; }
     try {
       if (locEditId) await api.update(locEditId, payload);
       else           await api.create(payload);
-      setLocMode('list'); qc.invalidateQueries({ queryKey: ['locations'] });
+      setLocMode('list');
+      await qc.refetchQueries({ queryKey: ['locations'] });
+      const levelLabel = LOC_LEVELS.find(l => l.key === locLevel)?.label ?? 'Location';
+      toast(`${levelLabel} saved.`, 'success');
     } catch (err: any) { setLocFormError(err.response?.data?.detail || 'Save failed.'); }
     finally { setLocSaving(false); }
   };
@@ -224,7 +265,7 @@ const Masters = () => {
     }
   };
 
-  const allRows = data[activeTab] || [];
+  const allRows = isLocations ? (data[locLevel] || []) : (lookupQ.data ?? []);
   const tabLabel = TABS.find((t: any) => t.key === activeTab)?.label?.replace(/s$/, '') || activeTab;
 
   // ── Form renderers ──────────────────────────────────────────────────────────
@@ -637,7 +678,7 @@ const Masters = () => {
         <>
           {/* Standard-tab add/edit form */}
           {isAdmin && mode !== 'list' ? (
-            <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
+            <div ref={formRef} className="glass-card" style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
               <div className="tab-bar" style={{ marginBottom: '1.5rem' }}>
                 <button className={`tab-btn ${mode === 'add' ? 'active' : ''}`} onClick={() => setMode('add')} disabled={loading}>
                   <Plus size={14} /> Add {tabLabel}

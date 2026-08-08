@@ -244,10 +244,78 @@ const ProjectDetail = () => {
                   <span className="info-value text-accent">{project.area_type.name} ({project.area_type.multiplier}×)</span>
                 </div>
               )}
+              {(project as any).khatauni_number && (
+                <div className="info-item">
+                  <span className="info-label">Khatauni No.</span>
+                  <span className="info-value">{(project as any).khatauni_number}</span>
+                </div>
+              )}
+              {(project as any).ownership_type && (
+                <div className="info-item">
+                  <span className="info-label">Ownership</span>
+                  <span className="info-value" style={{ textTransform: 'capitalize' }}>{(project as any).ownership_type}</span>
+                </div>
+              )}
               {project.khasra_no && (
                 <div className="info-item">
                   <span className="info-label">Khasra / Survey No.</span>
                   <span className="info-value">{project.khasra_no}</span>
+                </div>
+              )}
+              {(((project as any).land_parcels?.length ?? 0) > 0 || ((project as any).land_owners?.length ?? 0) > 0) && (
+                <div className="info-item" style={{ gridColumn: '1 / -1' }}>
+                  <span className="info-label">Land Registry (NOC)</span>
+                  <div style={{ marginTop: '0.5rem', width: '100%' }}>
+                    {(project as any).land_parcels?.length > 0 && (
+                      <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse', marginBottom: '0.75rem' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Khasra</th>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Type</th>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Area (SQM)</th>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Encumbrance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(project as any).land_parcels.map((p: any) => (
+                            <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.khasra_no}</td>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.land_type || '—'}</td>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.area_sqm?.toLocaleString('en-IN') ?? '—'}</td>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.encumbrance ? 'Yes' : 'No'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                    {(project as any).land_owners?.length > 0 && (
+                      <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Owner</th>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Father</th>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Khasra</th>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Area (Ha)</th>
+                            <th style={{ padding: '0.35rem 0.5rem' }}>Share</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(project as any).land_owners.map((o: any) => (
+                            <tr key={o.id} style={{ borderBottom: '1px solid #f1f5f9', fontWeight: o.is_primary_owner ? 600 : 400 }}>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>
+                                {o.owner_name}{o.relation ? ` (${o.relation})` : ''}
+                                {o.is_primary_owner ? ' · Primary' : ''}
+                              </td>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.father_name || '—'}</td>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.khasra_no || '—'}</td>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.area_hectare ?? (o.area_sqm ? (o.area_sqm / 10000).toFixed(4) : '—')}</td>
+                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.share_fraction || (o.share_percentage != null ? `${o.share_percentage}%` : '—')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

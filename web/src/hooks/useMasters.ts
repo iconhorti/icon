@@ -7,7 +7,7 @@ import { qk } from '../lib/queryClient';
 
 // ─── Standard lookup tabs ─────────────────────────────────────────────────────
 const LOOKUP_LOADERS: Record<string, () => Promise<any>> = {
-  components:    () => getComponents(),
+  components:    () => getComponents(null, false),
   area_types:    () => getAreaTypes(true),
   agencies:      () => getAgencies(),
   banks:         () => getBanks(),

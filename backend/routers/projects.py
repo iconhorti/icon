@@ -170,6 +170,8 @@ def get_project(
             joinedload(models.Project.dealer),
             joinedload(models.Project.bank_branch),
             joinedload(models.Project.area_type),
+            joinedload(models.Project.land_parcels),
+            joinedload(models.Project.land_owners),
         )
         .filter(models.Project.id == project_id)
         .first()
@@ -751,6 +753,165 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     db.delete(project)
     db.commit()
     return {"message": f"Project ID {project_id} deleted."}
+
+
+def _share_fraction_to_pct(fraction: str | None) -> float | None:
+    """Convert '1/6' → 16.666…"""
+    if not fraction or "/" not in fraction:
+        return None
+    try:
+        num, den = fraction.strip().split("/", 1)
+        n, d = float(num), float(den)
+        if d == 0:
+            return None
+        return round((n / d) * 100, 4)
+    except (ValueError, TypeError):
+        return None
+
+
+def _sync_project_land_summary(project: models.Project) -> None:
+    """Mirror registry rows onto legacy project.khasra_no / land_area fields."""
+    parcels = sorted(project.land_parcels or [], key=lambda p: p.sort_order or 0)
+    owners = sorted(project.land_owners or [], key=lambda o: o.sort_order or 0)
+    khasras: list[str] = []
+    for p in parcels:
+        k = (p.khasra_no or "").strip()
+        if k and k not in khasras:
+            khasras.append(k)
+    if not khasras:
+        for o in owners:
+            k = (o.khasra_no or "").strip()
+            if k and k not in khasras:
+                khasras.append(k)
+    if khasras:
+        project.khasra_no = ", ".join(khasras)
+        project.survey_no = khasras[0]
+    owner_area = sum(o.area_sqm or 0 for o in owners if o.area_sqm)
+    parcel_area = sum(p.area_sqm or 0 for p in parcels if p.area_sqm)
+    if owner_area > 0:
+        project.land_area = owner_area
+        project.land_unit = "SQM"
+    elif parcel_area > 0:
+        project.land_area = parcel_area
+        project.land_unit = "SQM"
+    if len(owners) >= 2:
+        project.ownership_type = "joint"
+    elif len(owners) == 1:
+        project.ownership_type = "single"
+
+
+def _load_project_detail(db: Session, project_id: int) -> models.Project | None:
+    return (
+        db.query(models.Project)
+        .options(
+            joinedload(models.Project.items),
+            joinedload(models.Project.contractors).joinedload(models.ProjectContractor.contractor),
+            joinedload(models.Project.contractors).joinedload(models.ProjectContractor.skill),
+            joinedload(models.Project.farmer),
+            joinedload(models.Project.dealer),
+            joinedload(models.Project.bank_branch),
+            joinedload(models.Project.area_type),
+            joinedload(models.Project.land_parcels),
+            joinedload(models.Project.land_owners),
+        )
+        .filter(models.Project.id == project_id)
+        .first()
+    )
+
+
+@router.put("/{project_id}/land-registry", response_model=schemas.ProjectDetailResponse)
+def replace_land_registry(
+    project_id: int,
+    body: schemas.ProjectLandRegistryUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.Person = Depends(get_current_user),
+):
+    """Replace all khasra parcels and joint land owners (NOC format)."""
+    if current_user.role not in PROJECT_CO_APPLICANT_WRITE_ROLES:
+        raise HTTPException(status_code=403, detail="Not authorized.")
+
+    project = db.query(models.Project).filter(models.Project.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    assert_project_access(project, current_user, db)
+
+    if body.khatauni_number is not None:
+        project.khatauni_number = body.khatauni_number.strip() or None
+    if body.ownership_type in ("single", "joint"):
+        project.ownership_type = body.ownership_type
+
+    db.query(models.ProjectLandParcel).filter(
+        models.ProjectLandParcel.project_id == project_id
+    ).delete(synchronize_session=False)
+    db.query(models.ProjectLandOwner).filter(
+        models.ProjectLandOwner.project_id == project_id
+    ).delete(synchronize_session=False)
+
+    for i, p in enumerate(body.parcels):
+        k = (p.khasra_no or "").strip()
+        if not k:
+            continue
+        db.add(models.ProjectLandParcel(
+            project_id=project_id,
+            khatauni_number=(p.khatauni_number or body.khatauni_number or project.khatauni_number or "").strip() or None,
+            khasra_no=k,
+            survey_no=((p.survey_no or k).strip() or k),
+            area_sqm=p.area_sqm,
+            land_type=p.land_type or "agricultural",
+            encumbrance=1 if p.encumbrance else 0,
+            notes=p.notes,
+            sort_order=p.sort_order if p.sort_order else i,
+        ))
+
+    for i, o in enumerate(body.owners):
+        name = (o.owner_name or "").strip()
+        if not name:
+            continue
+        area_sqm = o.area_sqm
+        area_ha = o.area_hectare
+        if area_sqm is None and area_ha is not None:
+            area_sqm = area_ha * 10000.0
+        if area_ha is None and area_sqm is not None:
+            area_ha = area_sqm / 10000.0
+        share_pct = o.share_percentage
+        if share_pct is None and o.share_fraction:
+            share_pct = _share_fraction_to_pct(o.share_fraction)
+        db.add(models.ProjectLandOwner(
+            project_id=project_id,
+            owner_name=name,
+            father_name=o.father_name,
+            relation=o.relation,
+            khasra_no=o.khasra_no,
+            area_sqm=area_sqm,
+            area_hectare=area_ha,
+            share_fraction=o.share_fraction,
+            share_percentage=share_pct,
+            is_primary_owner=1 if o.is_primary_owner else 0,
+            farmer_id=o.farmer_id,
+            sort_order=o.sort_order if o.sort_order else i,
+        ))
+
+    db.flush()
+    db.refresh(project)
+    project.land_parcels = (
+        db.query(models.ProjectLandParcel)
+        .filter(models.ProjectLandParcel.project_id == project_id)
+        .order_by(models.ProjectLandParcel.sort_order)
+        .all()
+    )
+    project.land_owners = (
+        db.query(models.ProjectLandOwner)
+        .filter(models.ProjectLandOwner.project_id == project_id)
+        .order_by(models.ProjectLandOwner.sort_order)
+        .all()
+    )
+    _sync_project_land_summary(project)
+    db.commit()
+
+    detail = _load_project_detail(db, project_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return detail
 
 
 # ─── CO-APPLICANTS ────────────────────────────────────────────────────────────

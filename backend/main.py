@@ -88,6 +88,22 @@ def _run_migrations():
     add_index_if_missing("projects", "dealer_id")
     add_index_if_missing("notifications", "user_id")
 
+    add_column_if_missing("projects", "khatauni_number", "VARCHAR(50)")
+    add_column_if_missing("projects", "ownership_type", "VARCHAR(20)", "'single'")
+
+    for col, ddl, default in (
+        ("khatauni_number", "VARCHAR(50)", ""),
+        ("land_type", "VARCHAR(30)", "'agricultural'"),
+        ("encumbrance", "INTEGER", "0"),
+    ):
+        add_column_if_missing("project_land_parcels", col, ddl, default)
+
+    for col, ddl in (
+        ("father_name", "VARCHAR(120)"),
+        ("share_percentage", "FLOAT"),
+    ):
+        add_column_if_missing("project_land_owners", col, ddl)
+
 
 # 1b. Seed document_types master table if empty
 def _seed_document_types():
@@ -105,7 +121,8 @@ def _seed_document_types():
                 ("Caste Certificate",          "KYC",        "Caste / category certificate",            "admin,owner,office_staff,dealer",         0, 15),
                 ("7/12 Extract (Land Record)", "Land",       "Satbara / Khasara land ownership record", "admin,owner,office_staff,dealer",         1, 20),
                 ("8A Certificate",             "Land",       "Khatauni / Land bank certificate",        "admin,owner,office_staff,dealer",         1, 21),
-                ("Land Map",                   "Land",       "Survey / cadastral map of the plot",      "admin,owner,office_staff,dealer",         0, 22),
+                ("NOC / Land Owner Consent",   "Land",       "Joint-ownership NOC for bank / subsidy",  "admin,owner,office_staff,dealer",         1, 22),
+                ("Land Map",                   "Land",       "Survey / cadastral map of the plot",      "admin,owner,office_staff,dealer",         0, 23),
                 ("DPR Document",               "Project",    "Detailed Project Report",                 "admin,owner,office_staff,project_manager",0, 30),
                 ("BOQ Sheet",                  "Project",    "Bill of Quantities",                      "admin,owner,office_staff,project_manager",0, 31),
                 ("Contractor Quotation",       "Project",    "Contractor price quotation",              "admin,owner,office_staff,dealer,project_manager",0,32),

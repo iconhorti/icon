@@ -1,6 +1,9 @@
 import { type ChangeEvent, type Dispatch, type SetStateAction } from 'react';
 import { ArrowRight, Building2, MapPin, Landmark, Users, UserCheck, X } from 'lucide-react';
 import LocationPicker from '../LocationPicker';
+import LandRegistrySection, {
+  type LandParcelRow, type LandOwnerRow, type LandRegistryMeta,
+} from './LandRegistrySection';
 
 interface ProjectFormDetailsProps {
   form: Record<string, any>;
@@ -19,13 +22,19 @@ interface ProjectFormDetailsProps {
   canEditRates: boolean;
   navigate: (delta: number) => void;
   setActiveTab: (tab: string) => void;
+  landMeta: LandRegistryMeta;
+  setLandMeta: Dispatch<SetStateAction<LandRegistryMeta>>;
+  landParcels: LandParcelRow[];
+  setLandParcels: Dispatch<SetStateAction<LandParcelRow[]>>;
+  landOwners: LandOwnerRow[];
+  setLandOwners: Dispatch<SetStateAction<LandOwnerRow[]>>;
 }
 
 export default function ProjectFormDetails({
   form, setForm, isEditMode, userRole, lookups, handleChange,
   coApplicants, toggleCoApplicant, coAppSearch, setCoAppSearch,
   coAppDropdownOpen, setCoAppDropdownOpen, branches, canEditRates,
-  navigate, setActiveTab
+  navigate, setActiveTab, landMeta, setLandMeta, landParcels, setLandParcels, landOwners, setLandOwners,
 }: ProjectFormDetailsProps) {
   const coApplicantOptions = (lookups?.farmers || []).filter(
     (f: any) => String(f.id || f.farmer_id) !== String(form.farmer_id)
@@ -228,13 +237,18 @@ export default function ProjectFormDetails({
                   compact={true}
                 />
               </div>
+              <LandRegistrySection
+                meta={landMeta}
+                setMeta={setLandMeta}
+                landParcels={landParcels}
+                setLandParcels={setLandParcels}
+                landOwners={landOwners}
+                setLandOwners={setLandOwners}
+              />
               <div className="form-group">
-                <label className="form-label">Khasra / Survey No</label>
-                <input className="form-control" name="khasra_survey_no" value={form.khasra_survey_no} onChange={handleChange} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Land Area *</label>
+                <label className="form-label">Total Land Area *</label>
                 <input className="form-control" type="number" name="land_area" value={form.land_area} onChange={handleChange} />
+                <span className="text-muted" style={{ fontSize: '0.75rem' }}>Auto-filled from owner/parcel totals when saved; override if needed.</span>
               </div>
               <div className="form-group">
                 <label className="form-label">Unit</label>

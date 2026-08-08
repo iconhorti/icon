@@ -1,4 +1,5 @@
 import ProjectFormDetails from '../components/ProjectForm/ProjectFormDetails';
+import { emptyParcel, emptyOwner, emptyRegistryMeta, landRegistryToApi, type LandParcelRow, type LandOwnerRow, type LandRegistryMeta } from '../components/ProjectForm/LandRegistrySection';
 import ProjectFormComponents from '../components/ProjectForm/ProjectFormComponents';
 import ProjectFormDocuments from '../components/ProjectForm/ProjectFormDocuments';
 import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react';
@@ -15,6 +16,7 @@ import {
   getProjectById, getDealerFarmers,
   uploadDocument, getProjectDocuments, deleteDocument, getDocumentTypes,
   getProjectCoApplicants, addProjectCoApplicant, removeProjectCoApplicant,
+  saveProjectLandRegistry,
 } from '../api/client';
 import { validateUpload } from '../lib/fileValidation';
 import { logger } from '../lib/logger';
@@ -24,6 +26,7 @@ import { CONFLICT_MESSAGE, isConflict, versionOf } from '../lib/concurrency';
 const FALLBACK_DOC_TYPES = [
   '7/12 Extract (Land Record)',
   '8A Certificate',
+  'NOC / Land Owner Consent',
   'Land Map',
 ];
 
@@ -81,6 +84,9 @@ const ProjectForm = () => {
   // ── Tab 1 form ────────────────────────────────────────────────────────────
   const [form, setForm] = useState<Record<string, any>>(EMPTY_FORM);
   const [coApplicants, setCoApplicants] = useState<string[]>([]); // farmer IDs added as co-applicants
+  const [landParcels, setLandParcels] = useState<LandParcelRow[]>([emptyParcel()]);
+  const [landOwners, setLandOwners] = useState<LandOwnerRow[]>([emptyOwner()]);
+  const [landMeta, setLandMeta] = useState<LandRegistryMeta>(emptyRegistryMeta());
 
   // ── Tab 2 items ───────────────────────────────────────────────────────────
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
@@ -195,6 +201,45 @@ const ProjectForm = () => {
           setSelectedItems(loadedItems);
           setOriginalItemIds(loadedItems.filter((i: any) => i.id).map((i: any) => i.id));
           if (proj.dealer_id) await fetchFarmers(proj.dealer_id);
+          const projAny = proj as any;
+          setLandMeta({
+            khatauni_number: projAny.khatauni_number || '',
+            ownership_type: projAny.ownership_type === 'joint' ? 'joint' : 'single',
+          });
+          if (projAny.land_parcels?.length) {
+            setLandParcels(projAny.land_parcels.map((p: any) => ({
+              khatauni_number: p.khatauni_number || '',
+              khasra_no: p.khasra_no || '',
+              survey_no: p.survey_no || '',
+              area_sqm: p.area_sqm != null ? String(p.area_sqm) : '',
+              land_type: p.land_type || 'agricultural',
+              encumbrance: !!p.encumbrance,
+              notes: p.notes || '',
+            })));
+          } else if (proj.khasra_no) {
+            setLandParcels([{
+              khatauni_number: projAny.khatauni_number || '',
+              khasra_no: proj.khasra_no,
+              survey_no: proj.survey_no || '',
+              area_sqm: proj.land_area != null ? String(proj.land_area) : '',
+              land_type: 'agricultural',
+              encumbrance: false,
+              notes: '',
+            }]);
+          }
+          if (projAny.land_owners?.length) {
+            setLandOwners(projAny.land_owners.map((o: any) => ({
+              owner_name: o.owner_name || '',
+              father_name: o.father_name || '',
+              relation: o.relation || '',
+              khasra_no: o.khasra_no || '',
+              area_sqm: o.area_sqm != null ? String(o.area_sqm) : '',
+              area_hectare: o.area_hectare != null ? String(o.area_hectare) : '',
+              share_fraction: o.share_fraction || '',
+              share_percentage: o.share_percentage != null ? String(o.share_percentage) : '',
+              is_primary_owner: !!o.is_primary_owner,
+            })));
+          }
           // Load co-applicants
           try {
             const coApps = await getProjectCoApplicants(id as string);
@@ -293,13 +338,16 @@ const ProjectForm = () => {
     if (selectedItems.length === 0) { setError('Please select at least one component.'); return; }
     setError(''); setSubmitting(true);
     try {
+      const landReg = landRegistryToApi(landMeta, landParcels, landOwners);
+      const khasraSummary = landReg.parcels.map(p => p.khasra_no).join(', ') || form.khasra_survey_no;
       const payload = {
         project_name: form.project_name || `Project-${Date.now()}`,
         farmer_id: parseInt(form.farmer_id),
         dealer_id: form.dealer_id ? parseInt(form.dealer_id) : null,
         area_type_id: parseInt(form.area_type_id),
         village_id: form.village_id ? parseInt(form.village_id) : null,
-        khasra_no: form.khasra_survey_no, survey_no: form.khasra_survey_no,
+        khasra_no: khasraSummary,
+        survey_no: landReg.parcels[0]?.khasra_no || form.khasra_survey_no,
         land_area: parseFloat(form.land_area), land_unit: form.land_unit,
         subsidy_agency_id: form.subsidy_agency_id ? parseInt(form.subsidy_agency_id) : null,
         bank_branch_id: form.bank_branch_id ? parseInt(form.bank_branch_id) : null,
@@ -372,6 +420,13 @@ const ProjectForm = () => {
           });
         }
       }
+
+      // Save land registry (khasaras + joint owners)
+      try {
+        if (landReg.parcels.length || landReg.owners.length) {
+          await saveProjectLandRegistry(resultId, landReg);
+        }
+      } catch (e) { logger.warn('ProjectForm.saveLandRegistry', e); }
 
       // Save co-applicants
       try {
@@ -510,7 +565,7 @@ const ProjectForm = () => {
         })}
       </div>
 
-      {activeTab === 'header' && <ProjectFormDetails form={form} setForm={setForm} isEditMode={isEditMode} userRole={userRole} lookups={lookups} handleChange={handleChange} coApplicants={coApplicants} toggleCoApplicant={toggleCoApplicant} coAppSearch={coAppSearch} setCoAppSearch={setCoAppSearch} coAppDropdownOpen={coAppDropdownOpen} setCoAppDropdownOpen={setCoAppDropdownOpen} branches={branches} canEditRates={canEditRates} navigate={navigate} setActiveTab={setActiveTab} />}
+      {activeTab === 'header' && <ProjectFormDetails form={form} setForm={setForm} isEditMode={isEditMode} userRole={userRole} lookups={lookups} handleChange={handleChange} coApplicants={coApplicants} toggleCoApplicant={toggleCoApplicant} coAppSearch={coAppSearch} setCoAppSearch={setCoAppSearch} coAppDropdownOpen={coAppDropdownOpen} setCoAppDropdownOpen={setCoAppDropdownOpen} branches={branches} canEditRates={canEditRates} navigate={navigate} setActiveTab={setActiveTab} landMeta={landMeta} setLandMeta={setLandMeta} landParcels={landParcels} setLandParcels={setLandParcels} landOwners={landOwners} setLandOwners={setLandOwners} />}
 
       {activeTab === 'components' && <ProjectFormComponents allLineItems={allLineItems} getSelectedItem={getSelectedItem} toggleItem={toggleItem} updateQty={updateQty} totals={totals} submitting={submitting} handleSubmit={handleSubmit} setActiveTab={setActiveTab} selectedItems={selectedItems} savedProjectId={savedProjectId} userRole={userRole} error={error} />}
 

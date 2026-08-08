@@ -30,6 +30,7 @@ class BankUpdate(BaseModel):
     short_name: Optional[str] = None
 
 class BranchUpdate(BaseModel):
+    bank_id:     Optional[int] = None
     branch_name: Optional[str] = None
     branch_code: Optional[str] = None
     ifsc:        Optional[str] = None
@@ -69,10 +70,8 @@ def update_bank(bank_id: int, updates: BankUpdate, db: Session = Depends(get_db)
     bank = db.query(models.Bank).filter(models.Bank.id == bank_id).first()
     if not bank:
         raise HTTPException(status_code=404, detail="Bank not found.")
-    if updates.name:
-        bank.name = updates.name
-    if updates.short_name is not None:
-        bank.short_name = updates.short_name
+    for key, value in updates.model_dump(exclude_unset=True).items():
+        setattr(bank, key, value)
     db.commit()
     return {"message": "Bank updated."}
 
@@ -119,7 +118,7 @@ def update_branch(branch_id: int, updates: BranchUpdate, db: Session = Depends(g
     branch = db.query(models.BankBranch).filter(models.BankBranch.id == branch_id).first()
     if not branch:
         raise HTTPException(status_code=404, detail="Branch not found.")
-    update_data = updates.model_dump(exclude_none=True)
+    update_data = updates.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         if hasattr(branch, key):
             setattr(branch, key, value)

@@ -20,6 +20,7 @@ router = APIRouter(prefix="/structures", tags=["Reference Data"])
 
 # ─── Unified CRUD ──────────────────────────────────────────────────────────────
 class ComponentUpdate(BaseModel):
+    component_type:          Optional[str]   = None
     name:                    Optional[str]   = None
     category:                Optional[str]   = None
     variant_code:            Optional[str]   = None
@@ -29,6 +30,7 @@ class ComponentUpdate(BaseModel):
     unit_type:               Optional[str]   = None
     min_qty:                 Optional[int]   = None
     max_qty:                 Optional[int]   = None
+    default_qty:             Optional[int]   = None
     is_subsidy_eligible:     Optional[int]   = None
     is_active:               Optional[int]   = None
     description:             Optional[str]   = None
@@ -69,7 +71,7 @@ def update_component(component_id: int, updates: ComponentUpdate, db: Session = 
     comp = db.query(models.Component).filter(models.Component.id == component_id).first()
     if not comp:
         raise HTTPException(status_code=404, detail="Component not found.")
-    for key, value in updates.model_dump(exclude_none=True).items():
+    for key, value in updates.model_dump(exclude_unset=True).items():
         if hasattr(comp, key):
             setattr(comp, key, value)
     db.commit()

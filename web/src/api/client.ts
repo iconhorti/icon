@@ -192,6 +192,19 @@ export const removeProjectCoApplicant = async (projectId: number | string, farme
   return response.data;
 };
 
+export const saveProjectLandRegistry = async (
+  projectId: number | string,
+  data: {
+    khatauni_number?: string | null;
+    ownership_type?: string | null;
+    parcels: Record<string, unknown>[];
+    owners: Record<string, unknown>[];
+  },
+) => {
+  const response = await apiClient.put(`/projects/${projectId}/land-registry`, data);
+  return response.data;
+};
+
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const getUsers = async (params: Params = {}): Promise<Person[]> => {
   const response = await apiClient.get(`/users/${toQuery(params)}`);
@@ -503,9 +516,15 @@ export const deleteAgency = async (id: number | string) => {
   return response.data;
 };
 
-export const getComponents = async (type: string | null = null): Promise<Component[]> => {
-  const params = type ? `?component_type=${type}` : '';
-  const response = await apiClient.get(`/structures/${params}`);
+export const getComponents = async (
+  type: string | null = null,
+  activeOnly = true,
+): Promise<Component[]> => {
+  const params = new URLSearchParams();
+  if (type) params.set('component_type', type);
+  if (!activeOnly) params.set('active_only', 'false');
+  const qs = params.toString();
+  const response = await apiClient.get(`/structures/${qs ? `?${qs}` : ''}`);
   return response.data;
 };
 export const createComponent = async (data: Record<string, unknown>): Promise<Component> => {

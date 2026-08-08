@@ -394,6 +394,8 @@ class Project(Base):
 
     # Location
     village_id = Column(Integer, ForeignKey("villages.id"))
+    khatauni_number = Column(String(50))   # 8A / khatauni ref
+    ownership_type  = Column(String(20), default="single")  # single | joint
     khasra_no  = Column(String(100))
     survey_no  = Column(String(100))
     land_area  = Column(Float)
@@ -488,6 +490,48 @@ class Project(Base):
     pest_alerts        = relationship("PestAlert",         back_populates="project", cascade="all, delete-orphan")
     notifications_rel  = relationship("Notification",      back_populates="project")
     co_applicants      = relationship("ProjectCoApplicant", back_populates="project", cascade="all, delete-orphan")
+    land_parcels       = relationship("ProjectLandParcel", back_populates="project", cascade="all, delete-orphan", order_by="ProjectLandParcel.sort_order")
+    land_owners        = relationship("ProjectLandOwner", back_populates="project", cascade="all, delete-orphan", order_by="ProjectLandOwner.sort_order")
+
+
+class ProjectLandParcel(Base):
+    """One survey/khasra parcel on a project (NOC may list several)."""
+    __tablename__ = "project_land_parcels"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    khatauni_number = Column(String(50))
+    khasra_no  = Column(String(100), nullable=False)
+    survey_no  = Column(String(100))
+    area_sqm   = Column(Float)
+    land_type  = Column(String(30), default="agricultural")
+    encumbrance = Column(Integer, default=0)  # 0/1 mortgage or lien
+    notes      = Column(String(255))
+    sort_order = Column(Integer, default=0)
+
+    project = relationship("Project", back_populates="land_parcels")
+
+
+class ProjectLandOwner(Base):
+    """Joint land owner / co-owner row (NOC consent format)."""
+    __tablename__ = "project_land_owners"
+
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    project_id       = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    owner_name       = Column(String(200), nullable=False)
+    father_name      = Column(String(120))        # e.g. Pemaram
+    relation         = Column(String(120))          # e.g. "W/o Pemaram"
+    khasra_no        = Column(String(100))
+    area_sqm         = Column(Float)
+    area_hectare     = Column(Float)
+    share_fraction   = Column(String(20))           # e.g. "1/6"
+    share_percentage = Column(Float)                # e.g. 16.67
+    is_primary_owner = Column(Integer, default=0)   # 1 = project owner on NOC
+    farmer_id        = Column(Integer, ForeignKey("person.id"), nullable=True)
+    sort_order       = Column(Integer, default=0)
+
+    project = relationship("Project", back_populates="land_owners")
+    farmer  = relationship("Person", foreign_keys=[farmer_id])
 
 
 class ProjectCoApplicant(Base):

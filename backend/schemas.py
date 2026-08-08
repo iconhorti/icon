@@ -336,6 +336,8 @@ class ProjectBase(BaseModel):
     crop_category: Optional[str] = None
     
     village_id: Optional[int] = None
+    khatauni_number: Optional[str] = None
+    ownership_type: Optional[str] = "single"
     khasra_no: Optional[str] = None
     survey_no: Optional[str] = None
     land_area: Optional[float] = None
@@ -432,6 +434,8 @@ class ProjectDetailResponse(ProjectResponse):
     # since it wasn't declared here — TeamAssignmentCard.tsx's "assigned
     # contractors" list was always empty as a result. See AUDIT_FIXES.md.
     contractors: List["ProjectContractorResponse"] = []
+    land_parcels: List["ProjectLandParcelResponse"] = []
+    land_owners: List["ProjectLandOwnerResponse"] = []
 
     class Config:
         from_attributes = True
@@ -713,3 +717,48 @@ class ProjectCoApplicantResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ─── Project land registry (multiple khasaras / joint owners) ─────────────────
+class ProjectLandParcelInput(BaseModel):
+    khatauni_number: Optional[str] = None
+    khasra_no: str
+    survey_no: Optional[str] = None
+    area_sqm: Optional[float] = None
+    land_type: Optional[str] = "agricultural"
+    encumbrance: int = 0
+    notes: Optional[str] = None
+    sort_order: int = 0
+
+class ProjectLandParcelResponse(ProjectLandParcelInput):
+    id: int
+    project_id: int
+
+    class Config:
+        from_attributes = True
+
+class ProjectLandOwnerInput(BaseModel):
+    owner_name: str
+    father_name: Optional[str] = None
+    relation: Optional[str] = None
+    khasra_no: Optional[str] = None
+    area_sqm: Optional[float] = None
+    area_hectare: Optional[float] = None
+    share_fraction: Optional[str] = None
+    share_percentage: Optional[float] = None
+    is_primary_owner: int = 0
+    farmer_id: Optional[int] = None
+    sort_order: int = 0
+
+class ProjectLandOwnerResponse(ProjectLandOwnerInput):
+    id: int
+    project_id: int
+
+    class Config:
+        from_attributes = True
+
+class ProjectLandRegistryUpdate(BaseModel):
+    khatauni_number: Optional[str] = None
+    ownership_type: Optional[str] = None  # single | joint
+    parcels: List[ProjectLandParcelInput] = []
+    owners: List[ProjectLandOwnerInput] = []
