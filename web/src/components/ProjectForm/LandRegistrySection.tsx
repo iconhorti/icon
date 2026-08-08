@@ -1,5 +1,5 @@
-import { Plus, Trash2, Users } from 'lucide-react';
-import type { Dispatch, SetStateAction } from 'react';
+import { Plus, Trash2, Users, UserCheck, AlertTriangle } from 'lucide-react';
+import type { CSSProperties, Dispatch, SetStateAction } from 'react';
 
 export interface LandRegistryMeta {
   khatauni_number: string;
@@ -45,7 +45,13 @@ export const emptyOwner = (): LandOwnerRow => ({
 });
 
 const LAND_TYPES = [
-  'agricultural', 'irrigated', 'unirrigated', 'barren', 'residential', 'commercial', 'other',
+  { value: 'agricultural', label: 'Agricultural' },
+  { value: 'irrigated', label: 'Irrigated' },
+  { value: 'unirrigated', label: 'Unirrigated' },
+  { value: 'barren', label: 'Barren' },
+  { value: 'residential', label: 'Residential' },
+  { value: 'commercial', label: 'Commercial' },
+  { value: 'other', label: 'Other' },
 ];
 
 function fractionToPct(fraction: string): string {
@@ -55,6 +61,13 @@ function fractionToPct(fraction: string): string {
   return String(Math.round((a / b) * 10000) / 100);
 }
 
+/** Best total SQM from parcels first, then owner rows. */
+export function registryTotalSqm(parcels: LandParcelRow[], owners: LandOwnerRow[]): number {
+  const parcelTotal = parcels.reduce((s, p) => s + (parseFloat(p.area_sqm) || 0), 0);
+  if (parcelTotal > 0) return parcelTotal;
+  return owners.reduce((s, o) => s + (parseFloat(o.area_sqm) || 0), 0);
+}
+
 interface Props {
   meta: LandRegistryMeta;
   setMeta: Dispatch<SetStateAction<LandRegistryMeta>>;
@@ -62,6 +75,8 @@ interface Props {
   setLandParcels: Dispatch<SetStateAction<LandParcelRow[]>>;
   landOwners: LandOwnerRow[];
   setLandOwners: Dispatch<SetStateAction<LandOwnerRow[]>>;
+  /** Main applicant name — used for one-click primary owner fill */
+  farmerName?: string;
 }
 
 export function landRegistryToApi(
@@ -108,8 +123,29 @@ export function landRegistryToApi(
   };
 }
 
+const hintBox: CSSProperties = {
+  fontSize: '0.82rem',
+  color: '#475569',
+  background: '#f8fafc',
+  border: '1px solid #e2e8f0',
+  borderRadius: 8,
+  padding: '0.6rem 0.75rem',
+  marginBottom: '0.75rem',
+  lineHeight: 1.45,
+};
+
+const warnBox: CSSProperties = {
+  ...hintBox,
+  color: '#92400e',
+  background: '#fffbeb',
+  borderColor: '#fde68a',
+  display: 'flex',
+  gap: 8,
+  alignItems: 'flex-start',
+};
+
 export default function LandRegistrySection({
-  meta, setMeta, landParcels, setLandParcels, landOwners, setLandOwners,
+  meta, setMeta, landParcels, setLandParcels, landOwners, setLandOwners, farmerName,
 }: Props) {
   const updateParcel = (idx: number, field: keyof LandParcelRow, value: string | boolean) => {
     setLandParcels(prev => prev.map((row, i) => i === idx ? { ...row, [field]: value } : row));
@@ -137,29 +173,50 @@ export default function LandRegistrySection({
   const ownerTotalSqm = landOwners.reduce((s, o) => s + (parseFloat(o.area_sqm) || 0), 0);
   const parcelTotalSqm = landParcels.reduce((s, p) => s + (parseFloat(p.area_sqm) || 0), 0);
   const ownerCount = landOwners.filter(o => o.owner_name.trim()).length;
+  const shareTotal = landOwners.reduce((s, o) => s + (parseFloat(o.share_percentage) || 0), 0);
+  const hasShares = landOwners.some(o => o.share_percentage || o.share_fraction);
+  const primaryKhasra = landParcels.find(p => p.khasra_no.trim())?.khasra_no || '';
+  const isJoint = meta.ownership_type === 'joint' || ownerCount >= 2;
+
+  const fillPrimaryFromFarmer = () => {
+    if (!farmerName?.trim()) return;
+    const khasra = primaryKhasra;
+    setLandOwners(prev => {
+      if (prev.length === 0) return [{ ...emptyOwner(), owner_name: farmerName.trim(), khasra_no: khasra, is_primary_owner: true }];
+      return prev.map((row, i) => i === 0
+        ? { ...row, owner_name: farmerName.trim(), khasra_no: row.khasra_no || khasra, is_primary_owner: true }
+        : row);
+    });
+    if (ownerCount >= 2) setMeta(m => ({ ...m, ownership_type: 'joint' }));
+  };
 
   return (
     <>
+      <div style={hintBox}>
+        <strong>Land details from 7/12 &amp; NOC</strong> — Enter the khasra number and all owners exactly as printed on the land papers.
+        For joint family land, choose <em>Joint</em> and add every owner from the NOC.
+      </div>
+
       <div className="form-section" style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Khatauni No. (8A)</label>
+            <label className="form-label">Khatauni / 8A number</label>
             <input
               className="form-control"
               value={meta.khatauni_number}
               onChange={e => setMeta(m => ({ ...m, khatauni_number: e.target.value }))}
-              placeholder="Khata / account number"
+              placeholder="As on 8A certificate"
             />
           </div>
           <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Ownership type</label>
+            <label className="form-label">Land ownership</label>
             <select
               className="form-control"
-              value={ownerCount >= 2 ? 'joint' : meta.ownership_type}
+              value={isJoint ? 'joint' : meta.ownership_type}
               onChange={e => setMeta(m => ({ ...m, ownership_type: e.target.value as 'single' | 'joint' }))}
             >
-              <option value="single">Single</option>
-              <option value="joint">Joint</option>
+              <option value="single">Single owner</option>
+              <option value="joint">Joint owners (NOC required)</option>
             </select>
           </div>
         </div>
@@ -168,10 +225,10 @@ export default function LandRegistrySection({
       <div className="form-section">
         <div className="form-section-header">
           <Users size={18} className="form-section-icon" />
-          <h3 className="form-section-title">Khasra / Survey Parcels</h3>
+          <h3 className="form-section-title">Khasra / plot numbers</h3>
         </div>
         <p className="text-muted" style={{ fontSize: '0.82rem', margin: '0 0 0.75rem' }}>
-          One row per khasra on the 7/12 or NOC (e.g. 421/187). Add multiple rows when plots differ.
+          One line per khasra. Example: <strong>421/187</strong> with area in square metres (SQM).
         </p>
         <div className="form-section-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {landParcels.map((row, idx) => (
@@ -191,41 +248,68 @@ export default function LandRegistrySection({
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Land type</label>
                 <select className="form-control" value={row.land_type} onChange={e => updateParcel(idx, 'land_type', e.target.value)}>
-                  {LAND_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  {LAND_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Notes</label>
                 <input className="form-control" value={row.notes} onChange={e => updateParcel(idx, 'notes', e.target.value)} />
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', marginBottom: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', marginBottom: 8 }} title="Check if there is a loan or charge on this land">
                 <input type="checkbox" checked={row.encumbrance} onChange={e => updateParcel(idx, 'encumbrance', e.target.checked)} />
-                Encumbrance
+                Loan/charge
               </label>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setLandParcels(p => p.filter((_, i) => i !== idx))}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setLandParcels(p => p.filter((_, i) => i !== idx))} title="Remove this khasra">
                 <Trash2 size={14} />
               </button>
             </div>
           ))}
           <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandParcels(p => [...p, emptyParcel()])}>
-            <Plus size={14} /> Add Khasra
+            <Plus size={14} /> Add another khasra
           </button>
           {parcelTotalSqm > 0 && (
             <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-              Parcel total: {parcelTotalSqm.toLocaleString('en-IN')} SQM ({(parcelTotalSqm / 10000).toFixed(4)} Ha)
+              Total plot area: {parcelTotalSqm.toLocaleString('en-IN')} SQM ({(parcelTotalSqm / 10000).toFixed(4)} hectares)
             </span>
           )}
         </div>
       </div>
 
       <div className="form-section">
-        <div className="form-section-header">
-          <Users size={18} className="form-section-icon" />
-          <h3 className="form-section-title">Joint Land Owners (NOC)</h3>
+        <div className="form-section-header" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Users size={18} className="form-section-icon" />
+            <h3 className="form-section-title" style={{ margin: 0 }}>Land owners (from NOC)</h3>
+          </div>
+          {farmerName && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={fillPrimaryFromFarmer}>
+              <UserCheck size={14} /> Use farmer &quot;{farmerName}&quot; as primary owner
+            </button>
+          )}
         </div>
         <p className="text-muted" style={{ fontSize: '0.82rem', margin: '0 0 0.75rem' }}>
-          All owners on the NOC — primary project owner plus co-owners with share and area.
+          List every name on the NOC. Mark the main applicant as <strong>Primary</strong>. Share can be entered as a fraction (e.g. 1/6).
         </p>
+
+        {isJoint && ownerCount < 2 && (
+          <div style={warnBox}>
+            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>Joint ownership is selected but only one owner is listed. Add all co-owners from the NOC.</span>
+          </div>
+        )}
+        {hasShares && ownerCount >= 2 && shareTotal > 0 && Math.abs(shareTotal - 100) > 2 && (
+          <div style={warnBox}>
+            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>Owner shares add up to {shareTotal.toFixed(1)}% — they should total about 100%. Please check the NOC.</span>
+          </div>
+        )}
+        {parcelTotalSqm > 0 && ownerTotalSqm > 0 && Math.abs(parcelTotalSqm - ownerTotalSqm) > parcelTotalSqm * 0.05 && (
+          <div style={warnBox}>
+            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>Plot area ({parcelTotalSqm.toLocaleString('en-IN')} SQM) and owner areas ({ownerTotalSqm.toLocaleString('en-IN')} SQM) do not match closely. One may be per-share — verify against the NOC.</span>
+          </div>
+        )}
+
         <div className="form-section-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {landOwners.map((row, idx) => (
             <div key={idx} style={{
@@ -236,11 +320,11 @@ export default function LandRegistrySection({
               borderRadius: 8,
             }}>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Owner *</label>
+                <label className="form-label">Owner name *</label>
                 <input className="form-control" value={row.owner_name} onChange={e => updateOwner(idx, 'owner_name', e.target.value)} placeholder="Nathu Ram" />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Father</label>
+                <label className="form-label">Father&apos;s name</label>
                 <input className="form-control" value={row.father_name} onChange={e => updateOwner(idx, 'father_name', e.target.value)} placeholder="Pemaram" />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
@@ -249,10 +333,10 @@ export default function LandRegistrySection({
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Khasra</label>
-                <input className="form-control" value={row.khasra_no} onChange={e => updateOwner(idx, 'khasra_no', e.target.value)} />
+                <input className="form-control" value={row.khasra_no} onChange={e => updateOwner(idx, 'khasra_no', e.target.value)} placeholder={primaryKhasra || '421/187'} />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Ha</label>
+                <label className="form-label">Area (Ha)</label>
                 <input className="form-control" type="number" step="0.0001" value={row.area_hectare} onChange={e => updateOwner(idx, 'area_hectare', e.target.value)} />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
@@ -263,7 +347,7 @@ export default function LandRegistrySection({
                 <label className="form-label">%</label>
                 <input className="form-control" type="number" step="0.01" value={row.share_percentage} onChange={e => updateOwner(idx, 'share_percentage', e.target.value)} />
               </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', marginBottom: 8 }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', marginBottom: 8 }} title="Main applicant on this project">
                 <input type="checkbox" checked={row.is_primary_owner} onChange={e => updateOwner(idx, 'is_primary_owner', e.target.checked)} />
                 Primary
               </label>
@@ -273,11 +357,11 @@ export default function LandRegistrySection({
             </div>
           ))}
           <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandOwners(o => [...o, emptyOwner()])}>
-            <Plus size={14} /> Add Owner
+            <Plus size={14} /> Add another owner
           </button>
           {ownerTotalSqm > 0 && (
             <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-              Owners total: {ownerTotalSqm.toLocaleString('en-IN')} SQM ({(ownerTotalSqm / 10000).toFixed(4)} Ha)
+              Total owner area: {ownerTotalSqm.toLocaleString('en-IN')} SQM ({(ownerTotalSqm / 10000).toFixed(4)} hectares)
             </span>
           )}
         </div>

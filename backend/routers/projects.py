@@ -906,6 +906,13 @@ def replace_land_registry(
         .all()
     )
     _sync_project_land_summary(project)
+    owner_count = len([o for o in body.owners if (o.owner_name or "").strip()])
+    parcel_count = len([p for p in body.parcels if (p.khasra_no or "").strip()])
+    log_activity(
+        db, project_id, current_user,
+        action="updated land registry",
+        note=f"{parcel_count} khasra(s), {owner_count} owner(s), {project.ownership_type or 'single'} ownership",
+    )
     db.commit()
 
     detail = _load_project_detail(db, project_id)

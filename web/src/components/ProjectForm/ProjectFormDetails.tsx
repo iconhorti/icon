@@ -39,6 +39,10 @@ export default function ProjectFormDetails({
   const coApplicantOptions = (lookups?.farmers || []).filter(
     (f: any) => String(f.id || f.farmer_id) !== String(form.farmer_id)
   );
+  const selectedFarmer = (lookups?.farmers || []).find((f: any) => String(f.id) === String(form.farmer_id));
+  const farmerName = selectedFarmer
+    ? `${selectedFarmer.first_name || ''} ${selectedFarmer.last_name || ''}`.trim()
+    : '';
 
   return (
     <div className="animate-fade-in">
@@ -244,6 +248,7 @@ export default function ProjectFormDetails({
                 setLandParcels={setLandParcels}
                 landOwners={landOwners}
                 setLandOwners={setLandOwners}
+                farmerName={farmerName || undefined}
               />
               <div className="form-group">
                 <label className="form-label">Total Land Area *</label>

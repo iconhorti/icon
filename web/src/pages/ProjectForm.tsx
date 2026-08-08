@@ -1,5 +1,5 @@
 import ProjectFormDetails from '../components/ProjectForm/ProjectFormDetails';
-import { emptyParcel, emptyOwner, emptyRegistryMeta, landRegistryToApi, type LandParcelRow, type LandOwnerRow, type LandRegistryMeta } from '../components/ProjectForm/LandRegistrySection';
+import { emptyParcel, emptyOwner, emptyRegistryMeta, landRegistryToApi, registryTotalSqm, type LandParcelRow, type LandOwnerRow, type LandRegistryMeta } from '../components/ProjectForm/LandRegistrySection';
 import ProjectFormComponents from '../components/ProjectForm/ProjectFormComponents';
 import ProjectFormDocuments from '../components/ProjectForm/ProjectFormDocuments';
 import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react';
@@ -262,6 +262,20 @@ const ProjectForm = () => {
       loadExistingDocs(savedProjectId);
     }
   }, [activeTab, savedProjectId, loadExistingDocs]);
+
+  // Auto-fill total land area from khasra / owner rows (user can still override)
+  useEffect(() => {
+    const total = registryTotalSqm(landParcels, landOwners);
+    if (total > 0) {
+      setForm(prev => {
+        const current = parseFloat(prev.land_area);
+        if (!prev.land_area || Number.isNaN(current) || current === 0) {
+          return { ...prev, land_area: String(Math.round(total)) };
+        }
+        return prev;
+      });
+    }
+  }, [landParcels, landOwners]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;

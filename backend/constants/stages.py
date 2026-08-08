@@ -96,6 +96,7 @@ STAGE_REQUIRED_DOCS = {
     "document_collection": [
         "Aadhaar Card (Front)", "Aadhaar Card (Back)", "PAN Card",
         "7/12 Extract (Land Record)", "8A Certificate",
+        "NOC / Land Owner Consent",
     ],
     "design_boq":   ["DPR Document", "BOQ Sheet"],
     "dpr_ready":    ["DPR Document", "BOQ Sheet"],

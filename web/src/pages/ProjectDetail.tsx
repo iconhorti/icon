@@ -256,6 +256,16 @@ const ProjectDetail = () => {
                   <span className="info-value" style={{ textTransform: 'capitalize' }}>{(project as any).ownership_type}</span>
                 </div>
               )}
+              {(project as any).ownership_type === 'joint' && (
+                <div className="info-item" style={{ gridColumn: '1 / -1' }}>
+                  <div style={{
+                    fontSize: '0.82rem', color: '#92400e', background: '#fffbeb',
+                    border: '1px solid #fde68a', borderRadius: 8, padding: '0.6rem 0.75rem',
+                  }}>
+                    <strong>Joint land:</strong> Please upload the signed <strong>NOC / Land Owner Consent</strong> from all owners under Land Documents.
+                  </div>
+                </div>
+              )}
               {project.khasra_no && (
                 <div className="info-item">
                   <span className="info-label">Khasra / Survey No.</span>
