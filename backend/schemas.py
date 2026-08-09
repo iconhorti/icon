@@ -727,6 +727,7 @@ class ProjectLandParcelInput(BaseModel):
     area_sqm: Optional[float] = None
     land_type: Optional[str] = "agricultural"
     encumbrance: int = 0
+    is_project_khasra: int = 0
     notes: Optional[str] = None
     sort_order: int = 0
 
@@ -747,6 +748,7 @@ class ProjectLandOwnerInput(BaseModel):
     share_fraction: Optional[str] = None
     share_percentage: Optional[float] = None
     is_primary_owner: int = 0
+    owner_type: Optional[str] = "project"  # project | other
     farmer_id: Optional[int] = None
     sort_order: int = 0
 

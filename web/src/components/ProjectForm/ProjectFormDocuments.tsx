@@ -74,7 +74,7 @@ export default function ProjectFormDocuments({
         <>
           {isJointLand && !hasNocUploaded && (
             <div className="upload-error" style={{ marginBottom: 0 }}>
-              <strong>Joint land — NOC required:</strong> Upload signed <strong>{NOC_DOC_TYPE}</strong> from every owner.
+              <strong>NOC required for project khasras:</strong> Upload signed <strong>{NOC_DOC_TYPE}</strong> from all project owners listed on the land registry.
             </div>
           )}
 

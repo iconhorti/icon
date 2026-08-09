@@ -21,6 +21,7 @@ import StageActionPanel from '../components/ProjectDetail/StageActionPanel';
 import ActivityTimeline from '../components/ProjectDetail/ActivityTimeline';
 import RequiredDocsChecklist from '../components/ProjectDetail/RequiredDocsChecklist';
 import Badge from '../components/Badge';
+import { needsNoc, projectKhasraNumbers, type LandOwnerRow, type LandParcelRow } from '../components/ProjectForm/LandRegistrySection';
 
 // ============================================================
 // ProjectDetail Component
@@ -146,8 +147,37 @@ const ProjectDetail = () => {
   const canAdvance        = CAN_ADVANCE[role] && currentStageIndex < WORKFLOW_STAGES.length - 1;
   const canRevert         = CAN_REVERT[role]  && currentStageIndex > 0;
 
-  const landOwnerCount = (project as any).land_owners?.length ?? 0;
-  const isJointLand = (project as any).ownership_type === 'joint' || landOwnerCount > 1;
+  const landParcels: LandParcelRow[] = ((project as any).land_parcels || []).map((p: any) => ({
+    khatauni_number: p.khatauni_number || '',
+    khasra_no: p.khasra_no || '',
+    survey_no: p.survey_no || '',
+    area_sqm: p.area_sqm != null ? String(p.area_sqm) : '',
+    land_type: p.land_type || 'agricultural',
+    encumbrance: !!p.encumbrance,
+    is_project_khasra: !!p.is_project_khasra,
+    notes: p.notes || '',
+  }));
+  const landOwners: LandOwnerRow[] = ((project as any).land_owners || []).map((o: any) => ({
+    owner_name: o.owner_name || '',
+    father_name: o.father_name || '',
+    relation: o.relation || '',
+    khasra_no: o.khasra_no || '',
+    area_sqm: o.area_sqm != null ? String(o.area_sqm) : '',
+    area_hectare: o.area_hectare != null ? String(o.area_hectare) : '',
+    share_fraction: o.share_fraction || '',
+    share_percentage: o.share_percentage != null ? String(o.share_percentage) : '',
+    is_primary_owner: !!o.is_primary_owner,
+    owner_type: (o.owner_type === 'other' ? 'other' : 'project') as LandOwnerRow['owner_type'],
+  }));
+  const landMeta = {
+    khatauni_number: (project as any).khatauni_number || '',
+    ownership_type: (project as any).ownership_type === 'joint' ? 'joint' as const : 'single' as const,
+  };
+  const projectKhasras = projectKhasraNumbers(landParcels);
+  const projectOwnerCount = landOwners.filter(o =>
+    o.owner_name.trim() && o.owner_type === 'project' && projectKhasras.includes(o.khasra_no.trim()),
+  ).length;
+  const isJointLand = needsNoc(landParcels, landOwners, landMeta);
   const nocDocType = 'NOC / Land Owner Consent';
   const hasNocUploaded = requiredDocs?.presentSet?.has(nocDocType) ?? false;
 
@@ -260,9 +290,9 @@ const ProjectDetail = () => {
                   <span className="info-label">Ownership</span>
                   <span className="info-value" style={{ textTransform: 'capitalize' }}>
                     {(project as any).ownership_type}
-                    {isJointLand && landOwnerCount > 0 && (
+                    {isJointLand && projectOwnerCount > 0 && (
                       <span style={{ marginLeft: 8, fontSize: '0.82rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
-                        · {landOwnerCount} owner{landOwnerCount !== 1 ? 's' : ''} on NOC
+                        · {projectOwnerCount} project owner{projectOwnerCount !== 1 ? 's' : ''} on NOC
                       </span>
                     )}
                   </span>
@@ -274,7 +304,7 @@ const ProjectDetail = () => {
                     fontSize: '0.82rem', color: '#92400e', background: '#fffbeb',
                     border: '1px solid #fde68a', borderRadius: 8, padding: '0.6rem 0.75rem',
                   }}>
-                    <strong>Joint land:</strong> Please upload the signed <strong>{nocDocType}</strong> from all owners (edit project → Land Documents).
+                    <strong>Project khasras — NOC required:</strong> Please upload the signed <strong>{nocDocType}</strong> from all project owners (edit project → Land Documents).
                   </div>
                 </div>
               )}
@@ -296,57 +326,88 @@ const ProjectDetail = () => {
               )}
               {(((project as any).land_parcels?.length ?? 0) > 0 || ((project as any).land_owners?.length ?? 0) > 0) && (
                 <div className="info-item" style={{ gridColumn: '1 / -1' }}>
-                  <span className="info-label">Land Registry (NOC)</span>
+                  <span className="info-label">Land Registry</span>
                   <div style={{ marginTop: '0.5rem', width: '100%' }}>
-                    {(project as any).land_parcels?.length > 0 && (
-                      <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse', marginBottom: '0.75rem' }}>
-                        <thead>
-                          <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Khasra</th>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Type</th>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Area (SQM)</th>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Encumbrance</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(project as any).land_parcels.map((p: any) => (
-                            <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.khasra_no}</td>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.land_type || '—'}</td>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.area_sqm?.toLocaleString('en-IN') ?? '—'}</td>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{p.encumbrance ? 'Yes' : 'No'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                    {(project as any).land_owners?.length > 0 && (
-                      <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Owner</th>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Father</th>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Khasra</th>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Area (Ha)</th>
-                            <th style={{ padding: '0.35rem 0.5rem' }}>Share</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(project as any).land_owners.map((o: any) => (
-                            <tr key={o.id} style={{ borderBottom: '1px solid #f1f5f9', fontWeight: o.is_primary_owner ? 600 : 400 }}>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>
-                                {o.owner_name}{o.relation ? ` (${o.relation})` : ''}
-                                {o.is_primary_owner ? ' · Primary' : ''}
-                              </td>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.father_name || '—'}</td>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.khasra_no || '—'}</td>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.area_hectare ?? (o.area_sqm ? (o.area_sqm / 10000).toFixed(4) : '—')}</td>
-                              <td style={{ padding: '0.35rem 0.5rem' }}>{o.share_fraction || (o.share_percentage != null ? `${o.share_percentage}%` : '—')}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                    {(() => {
+                      const parcels: any[] = (project as any).land_parcels || [];
+                      const owners: any[] = (project as any).land_owners || [];
+                      const projectParcelList = parcels.filter((p: any) => p.is_project_khasra);
+                      const otherParcelList = parcels.filter((p: any) => !p.is_project_khasra);
+
+                      const renderKhasraBlock = (p: any, isProject: boolean) => {
+                        const kOwners = owners.filter((o: any) => (o.khasra_no || '').trim() === (p.khasra_no || '').trim());
+                        return (
+                          <div key={p.id} style={{ marginBottom: '1rem', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.6rem 0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                              <strong style={{ fontSize: '0.88rem' }}>Khasra {p.khasra_no}</strong>
+                              {isProject && (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.1rem 0.45rem', borderRadius: 999, background: '#e8f5e9', color: '#1a472a' }}>
+                                  Project khasra
+                                </span>
+                              )}
+                              {!isProject && (
+                                <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '0.1rem 0.45rem', borderRadius: 999, background: '#f1f5f9', color: '#64748b' }}>
+                                  Other khasra
+                                </span>
+                              )}
+                              <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                                {p.land_type || '—'} · {p.area_sqm?.toLocaleString('en-IN') ?? '—'} SQM
+                                {p.encumbrance ? ' · Loan/charge' : ''}
+                              </span>
+                            </div>
+                            {kOwners.length > 0 ? (
+                              <table style={{ width: '100%', fontSize: '0.82rem', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
+                                    <th style={{ padding: '0.35rem 0.5rem' }}>Owner</th>
+                                    <th style={{ padding: '0.35rem 0.5rem' }}>Type</th>
+                                    <th style={{ padding: '0.35rem 0.5rem' }}>Father</th>
+                                    <th style={{ padding: '0.35rem 0.5rem' }}>Area (Ha)</th>
+                                    <th style={{ padding: '0.35rem 0.5rem' }}>Share</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {kOwners.map((o: any) => (
+                                    <tr key={o.id} style={{ borderBottom: '1px solid #f1f5f9', fontWeight: o.is_primary_owner ? 600 : 400 }}>
+                                      <td style={{ padding: '0.35rem 0.5rem' }}>
+                                        {o.owner_name}{o.relation ? ` (${o.relation})` : ''}
+                                        {o.is_primary_owner ? ' · Primary' : ''}
+                                      </td>
+                                      <td style={{ padding: '0.35rem 0.5rem' }}>
+                                        {(o.owner_type || 'project') === 'other' ? 'Other owner' : 'Project owner'}
+                                      </td>
+                                      <td style={{ padding: '0.35rem 0.5rem' }}>{o.father_name || '—'}</td>
+                                      <td style={{ padding: '0.35rem 0.5rem' }}>{o.area_hectare ?? (o.area_sqm ? (o.area_sqm / 10000).toFixed(4) : '—')}</td>
+                                      <td style={{ padding: '0.35rem 0.5rem' }}>{o.share_fraction || (o.share_percentage != null ? `${o.share_percentage}%` : '—')}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            ) : (
+                              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>No owners recorded for this khasra.</p>
+                            )}
+                          </div>
+                        );
+                      };
+
+                      return (
+                        <>
+                          {projectParcelList.length > 0 && (
+                            <div style={{ marginBottom: '0.75rem' }}>
+                              <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', fontWeight: 600, color: '#1a472a' }}>Project khasras (greenhouse site)</p>
+                              {projectParcelList.map((p: any) => renderKhasraBlock(p, true))}
+                            </div>
+                          )}
+                          {otherParcelList.length > 0 && (
+                            <div>
+                              <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>Other khasras on land record</p>
+                              {otherParcelList.map((p: any) => renderKhasraBlock(p, false))}
+                            </div>
+                          )}
+                          {projectParcelList.length === 0 && otherParcelList.length === 0 && parcels.map((p: any) => renderKhasraBlock(p, !!p.is_project_khasra))}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

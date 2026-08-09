@@ -95,14 +95,16 @@ def _run_migrations():
         ("khatauni_number", "VARCHAR(50)", ""),
         ("land_type", "VARCHAR(30)", "'agricultural'"),
         ("encumbrance", "INTEGER", "0"),
+        ("is_project_khasra", "INTEGER", "0"),
     ):
         add_column_if_missing("project_land_parcels", col, ddl, default)
 
-    for col, ddl in (
-        ("father_name", "VARCHAR(120)"),
-        ("share_percentage", "FLOAT"),
+    for col, ddl, default in (
+        ("father_name", "VARCHAR(120)", ""),
+        ("share_percentage", "FLOAT", ""),
+        ("owner_type", "VARCHAR(20)", "'project'"),
     ):
-        add_column_if_missing("project_land_owners", col, ddl)
+        add_column_if_missing("project_land_owners", col, ddl, default)
 
 
 # 1b. Seed document_types master table if empty

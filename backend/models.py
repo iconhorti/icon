@@ -506,6 +506,7 @@ class ProjectLandParcel(Base):
     area_sqm   = Column(Float)
     land_type  = Column(String(30), default="agricultural")
     encumbrance = Column(Integer, default=0)  # 0/1 mortgage or lien
+    is_project_khasra = Column(Integer, default=0)  # 1 = greenhouse built on this khasra
     notes      = Column(String(255))
     sort_order = Column(Integer, default=0)
 
@@ -527,6 +528,7 @@ class ProjectLandOwner(Base):
     share_fraction   = Column(String(20))           # e.g. "1/6"
     share_percentage = Column(Float)                # e.g. 16.67
     is_primary_owner = Column(Integer, default=0)   # 1 = project owner on NOC
+    owner_type       = Column(String(20), default="project")  # project | other
     farmer_id        = Column(Integer, ForeignKey("person.id"), nullable=True)
     sort_order       = Column(Integer, default=0)
 

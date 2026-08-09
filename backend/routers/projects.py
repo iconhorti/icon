@@ -773,30 +773,39 @@ def _sync_project_land_summary(project: models.Project) -> None:
     """Mirror registry rows onto legacy project.khasra_no / land_area fields."""
     parcels = sorted(project.land_parcels or [], key=lambda p: p.sort_order or 0)
     owners = sorted(project.land_owners or [], key=lambda o: o.sort_order or 0)
+    project_parcels = [p for p in parcels if (p.is_project_khasra or 0) == 1]
+    if not project_parcels and parcels:
+        project_parcels = [parcels[0]]
+    project_khasra_set = {(p.khasra_no or "").strip() for p in project_parcels if (p.khasra_no or "").strip()}
+    project_owners = [
+        o for o in owners
+        if (o.owner_type or "project") == "project"
+        and ((o.khasra_no or "").strip() in project_khasra_set or not project_khasra_set)
+    ]
     khasras: list[str] = []
-    for p in parcels:
+    for p in project_parcels:
         k = (p.khasra_no or "").strip()
         if k and k not in khasras:
             khasras.append(k)
     if not khasras:
-        for o in owners:
+        for o in project_owners:
             k = (o.khasra_no or "").strip()
             if k and k not in khasras:
                 khasras.append(k)
     if khasras:
         project.khasra_no = ", ".join(khasras)
         project.survey_no = khasras[0]
-    owner_area = sum(o.area_sqm or 0 for o in owners if o.area_sqm)
-    parcel_area = sum(p.area_sqm or 0 for p in parcels if p.area_sqm)
+    owner_area = sum(o.area_sqm or 0 for o in project_owners if o.area_sqm)
+    parcel_area = sum(p.area_sqm or 0 for p in project_parcels if p.area_sqm)
     if owner_area > 0:
         project.land_area = owner_area
         project.land_unit = "SQM"
     elif parcel_area > 0:
         project.land_area = parcel_area
         project.land_unit = "SQM"
-    if len(owners) >= 2:
+    if len(project_owners) >= 2:
         project.ownership_type = "joint"
-    elif len(owners) == 1:
+    elif len(project_owners) == 1:
         project.ownership_type = "single"
 
 
@@ -859,6 +868,7 @@ def replace_land_registry(
             area_sqm=p.area_sqm,
             land_type=p.land_type or "agricultural",
             encumbrance=1 if p.encumbrance else 0,
+            is_project_khasra=1 if p.is_project_khasra else 0,
             notes=p.notes,
             sort_order=p.sort_order if p.sort_order else i,
         ))
@@ -876,6 +886,9 @@ def replace_land_registry(
         share_pct = o.share_percentage
         if share_pct is None and o.share_fraction:
             share_pct = _share_fraction_to_pct(o.share_fraction)
+        owner_type = (o.owner_type or "project").strip().lower()
+        if owner_type not in ("project", "other"):
+            owner_type = "project"
         db.add(models.ProjectLandOwner(
             project_id=project_id,
             owner_name=name,
@@ -887,6 +900,7 @@ def replace_land_registry(
             share_fraction=o.share_fraction,
             share_percentage=share_pct,
             is_primary_owner=1 if o.is_primary_owner else 0,
+            owner_type=owner_type,
             farmer_id=o.farmer_id,
             sort_order=o.sort_order if o.sort_order else i,
         ))
@@ -906,7 +920,10 @@ def replace_land_registry(
         .all()
     )
     _sync_project_land_summary(project)
-    owner_count = len([o for o in body.owners if (o.owner_name or "").strip()])
+    owner_count = len([
+        o for o in body.owners
+        if (o.owner_name or "").strip() and (o.owner_type or "project") == "project"
+    ])
     parcel_count = len([p for p in body.parcels if (p.khasra_no or "").strip()])
     log_activity(
         db, project_id, current_user,

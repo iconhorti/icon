@@ -1,5 +1,5 @@
 import ProjectFormDetails from '../components/ProjectForm/ProjectFormDetails';
-import { emptyParcel, emptyOwner, emptyRegistryMeta, landRegistryToApi, registryTotalSqm, type LandParcelRow, type LandOwnerRow, type LandRegistryMeta } from '../components/ProjectForm/LandRegistrySection';
+import { emptyParcel, emptyRegistryMeta, landRegistryToApi, normalizeLandRegistryOnLoad, needsNoc, registryTotalSqm, type LandParcelRow, type LandOwnerRow, type LandRegistryMeta } from '../components/ProjectForm/LandRegistrySection';
 import ProjectFormComponents from '../components/ProjectForm/ProjectFormComponents';
 import ProjectFormDocuments from '../components/ProjectForm/ProjectFormDocuments';
 import { useState, useEffect, useCallback, useRef, type ChangeEvent } from 'react';
@@ -85,7 +85,7 @@ const ProjectForm = () => {
   const [form, setForm] = useState<Record<string, any>>(EMPTY_FORM);
   const [coApplicants, setCoApplicants] = useState<string[]>([]); // farmer IDs added as co-applicants
   const [landParcels, setLandParcels] = useState<LandParcelRow[]>([emptyParcel()]);
-  const [landOwners, setLandOwners] = useState<LandOwnerRow[]>([emptyOwner()]);
+  const [landOwners, setLandOwners] = useState<LandOwnerRow[]>([]);
   const [landMeta, setLandMeta] = useState<LandRegistryMeta>(emptyRegistryMeta());
 
   // ── Tab 2 items ───────────────────────────────────────────────────────────
@@ -206,29 +206,33 @@ const ProjectForm = () => {
             khatauni_number: projAny.khatauni_number || '',
             ownership_type: projAny.ownership_type === 'joint' ? 'joint' : 'single',
           });
+          let loadedParcels: LandParcelRow[] = [emptyParcel()];
           if (projAny.land_parcels?.length) {
-            setLandParcels(projAny.land_parcels.map((p: any) => ({
+            loadedParcels = projAny.land_parcels.map((p: any) => ({
               khatauni_number: p.khatauni_number || '',
               khasra_no: p.khasra_no || '',
               survey_no: p.survey_no || '',
               area_sqm: p.area_sqm != null ? String(p.area_sqm) : '',
               land_type: p.land_type || 'agricultural',
               encumbrance: !!p.encumbrance,
+              is_project_khasra: !!p.is_project_khasra,
               notes: p.notes || '',
-            })));
+            }));
           } else if (proj.khasra_no) {
-            setLandParcels([{
+            loadedParcels = [{
               khatauni_number: projAny.khatauni_number || '',
               khasra_no: proj.khasra_no,
               survey_no: proj.survey_no || '',
               area_sqm: proj.land_area != null ? String(proj.land_area) : '',
               land_type: 'agricultural',
               encumbrance: false,
+              is_project_khasra: true,
               notes: '',
-            }]);
+            }];
           }
+          let loadedOwners: LandOwnerRow[] = [];
           if (projAny.land_owners?.length) {
-            setLandOwners(projAny.land_owners.map((o: any) => ({
+            loadedOwners = projAny.land_owners.map((o: any) => ({
               owner_name: o.owner_name || '',
               father_name: o.father_name || '',
               relation: o.relation || '',
@@ -238,8 +242,12 @@ const ProjectForm = () => {
               share_fraction: o.share_fraction || '',
               share_percentage: o.share_percentage != null ? String(o.share_percentage) : '',
               is_primary_owner: !!o.is_primary_owner,
-            })));
+              owner_type: o.owner_type === 'other' ? 'other' : 'project',
+            }));
           }
+          const normalized = normalizeLandRegistryOnLoad(loadedParcels, loadedOwners);
+          setLandParcels(normalized.parcels);
+          setLandOwners(normalized.owners);
           // Load co-applicants
           try {
             const coApps = await getProjectCoApplicants(id as string);
@@ -583,7 +591,7 @@ const ProjectForm = () => {
 
       {activeTab === 'components' && <ProjectFormComponents allLineItems={allLineItems} getSelectedItem={getSelectedItem} toggleItem={toggleItem} updateQty={updateQty} totals={totals} submitting={submitting} handleSubmit={handleSubmit} setActiveTab={setActiveTab} selectedItems={selectedItems} savedProjectId={savedProjectId} userRole={userRole} error={error} />}
 
-      {activeTab === 'documents' && <ProjectFormDocuments existingDocs={existingDocs} docTypesByCategory={docTypesByCategory} docType={docType} setDocType={setDocType} docFile={docFile} setDocFile={setDocFile} docRemarks={docRemarks} setDocRemarks={setDocRemarks} docUploading={docUploading} handleDocUpload={handleDocUpload} handleDeleteDoc={handleDeleteDoc} docError={docError} fileInputRef={fileInputRef} navigate={navigate} fmtSize={fmtSize} savedProjectId={savedProjectId} setActiveTab={setActiveTab} docTypesList={FALLBACK_DOC_TYPES} isJointLand={landMeta.ownership_type === 'joint' || landOwners.filter(o => o.owner_name?.trim()).length > 1} />}
+      {activeTab === 'documents' && <ProjectFormDocuments existingDocs={existingDocs} docTypesByCategory={docTypesByCategory} docType={docType} setDocType={setDocType} docFile={docFile} setDocFile={setDocFile} docRemarks={docRemarks} setDocRemarks={setDocRemarks} docUploading={docUploading} handleDocUpload={handleDocUpload} handleDeleteDoc={handleDeleteDoc} docError={docError} fileInputRef={fileInputRef} navigate={navigate} fmtSize={fmtSize} savedProjectId={savedProjectId} setActiveTab={setActiveTab} docTypesList={FALLBACK_DOC_TYPES} isJointLand={needsNoc(landParcels, landOwners, landMeta)} />}
     </div>
   );
 };

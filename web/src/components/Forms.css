@@ -174,6 +174,67 @@
   gap: 0.75rem;
 }
 
+.land-registry-parcel-card.is-project-khasra {
+  border-color: rgba(26, 71, 42, 0.35);
+  background: #f8fdf9;
+}
+
+.land-registry-parcel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.land-registry-project-khasra-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary, #1a472a);
+}
+
+.land-registry-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.land-registry-badge-project {
+  background: var(--color-primary-soft, #e8f5e9);
+  color: var(--color-primary, #1a472a);
+}
+
+.land-registry-khasra-owners {
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.land-registry-khasra-owners-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.land-registry-khasra-owners-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.land-registry-noc-info {
+  margin-top: 0;
+}
+
 .land-registry-field-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
