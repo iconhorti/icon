@@ -886,9 +886,9 @@ def replace_land_registry(
         share_pct = o.share_percentage
         if share_pct is None and o.share_fraction:
             share_pct = _share_fraction_to_pct(o.share_fraction)
-        owner_type = (o.owner_type or "project").strip().lower()
+        owner_type = (o.owner_type or "other").strip().lower()
         if owner_type not in ("project", "other"):
-            owner_type = "project"
+            owner_type = "other"
         db.add(models.ProjectLandOwner(
             project_id=project_id,
             owner_name=name,

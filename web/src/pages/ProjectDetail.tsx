@@ -333,6 +333,20 @@ const ProjectDetail = () => {
                       const owners: any[] = (project as any).land_owners || [];
                       const projectParcelList = parcels.filter((p: any) => p.is_project_khasra);
                       const otherParcelList = parcels.filter((p: any) => !p.is_project_khasra);
+                      const projectKhasraNos = new Set(projectParcelList.map((p: any) => (p.khasra_no || '').trim()));
+                      const projectOwners = owners.filter((o: any) =>
+                        (o.owner_type || 'other') === 'project' && projectKhasraNos.has((o.khasra_no || '').trim()),
+                      );
+                      const otherOwners = owners.filter((o: any) =>
+                        (o.owner_type || 'other') === 'other' || !projectKhasraNos.has((o.khasra_no || '').trim()),
+                      );
+
+                      const formatShare = (o: any) => {
+                        if (o.share_fraction && o.share_percentage != null) {
+                          return `${o.share_fraction} (${o.share_percentage}%)`;
+                        }
+                        return o.share_fraction || (o.share_percentage != null ? `${o.share_percentage}%` : '—');
+                      };
 
                       const renderKhasraBlock = (p: any, isProject: boolean) => {
                         const kOwners = owners.filter((o: any) => (o.khasra_no || '').trim() === (p.khasra_no || '').trim());
@@ -360,9 +374,9 @@ const ProjectDetail = () => {
                                 <thead>
                                   <tr style={{ background: '#f8fafc', textAlign: 'left' }}>
                                     <th style={{ padding: '0.35rem 0.5rem' }}>Owner</th>
-                                    <th style={{ padding: '0.35rem 0.5rem' }}>Type</th>
+                                    <th style={{ padding: '0.35rem 0.5rem' }}>Role</th>
                                     <th style={{ padding: '0.35rem 0.5rem' }}>Father</th>
-                                    <th style={{ padding: '0.35rem 0.5rem' }}>Area (Ha)</th>
+                                    <th style={{ padding: '0.35rem 0.5rem' }}>Area (SQM)</th>
                                     <th style={{ padding: '0.35rem 0.5rem' }}>Share</th>
                                   </tr>
                                 </thead>
@@ -374,11 +388,11 @@ const ProjectDetail = () => {
                                         {o.is_primary_owner ? ' · Primary' : ''}
                                       </td>
                                       <td style={{ padding: '0.35rem 0.5rem' }}>
-                                        {(o.owner_type || 'project') === 'other' ? 'Other owner' : 'Project owner'}
+                                        {(o.owner_type || 'other') === 'project' && isProject ? 'Project owner' : 'Other owner'}
                                       </td>
                                       <td style={{ padding: '0.35rem 0.5rem' }}>{o.father_name || '—'}</td>
-                                      <td style={{ padding: '0.35rem 0.5rem' }}>{o.area_hectare ?? (o.area_sqm ? (o.area_sqm / 10000).toFixed(4) : '—')}</td>
-                                      <td style={{ padding: '0.35rem 0.5rem' }}>{o.share_fraction || (o.share_percentage != null ? `${o.share_percentage}%` : '—')}</td>
+                                      <td style={{ padding: '0.35rem 0.5rem' }}>{o.area_sqm?.toLocaleString('en-IN') ?? (o.area_hectare ? (o.area_hectare * 10000).toLocaleString('en-IN') : '—')}</td>
+                                      <td style={{ padding: '0.35rem 0.5rem' }}>{formatShare(o)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
@@ -392,19 +406,46 @@ const ProjectDetail = () => {
 
                       return (
                         <>
+                          <div style={{
+                            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                            gap: '0.5rem', marginBottom: '0.75rem', fontSize: '0.78rem',
+                          }}>
+                            <div style={{ padding: '0.4rem 0.5rem', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                              <strong>{parcels.length}</strong> khasra{parcels.length !== 1 ? 's' : ''}
+                            </div>
+                            <div style={{ padding: '0.4rem 0.5rem', background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                              <strong>{owners.length}</strong> owner{owners.length !== 1 ? 's' : ''} total
+                            </div>
+                            <div style={{ padding: '0.4rem 0.5rem', background: '#e8f5e9', borderRadius: 6, border: '1px solid rgba(26,71,42,0.2)' }}>
+                              <strong>{projectParcelList.length}</strong> project khasra{projectParcelList.length !== 1 ? 's' : ''}
+                            </div>
+                            <div style={{ padding: '0.4rem 0.5rem', background: '#e8f5e9', borderRadius: 6, border: '1px solid rgba(26,71,42,0.2)' }}>
+                              <strong>{projectOwners.length}</strong> project owner{projectOwners.length !== 1 ? 's' : ''}
+                            </div>
+                          </div>
                           {projectParcelList.length > 0 && (
                             <div style={{ marginBottom: '0.75rem' }}>
-                              <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', fontWeight: 600, color: '#1a472a' }}>Project khasras (greenhouse site)</p>
+                              <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', fontWeight: 600, color: '#1a472a' }}>
+                                3. Project khasras — greenhouse site
+                              </p>
                               {projectParcelList.map((p: any) => renderKhasraBlock(p, true))}
                             </div>
                           )}
                           {otherParcelList.length > 0 && (
-                            <div>
-                              <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>Other khasras on land record</p>
+                            <div style={{ marginBottom: '0.75rem' }}>
+                              <p style={{ margin: '0 0 0.5rem', fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>
+                                Other khasras on land record
+                              </p>
                               {otherParcelList.map((p: any) => renderKhasraBlock(p, false))}
                             </div>
                           )}
                           {projectParcelList.length === 0 && otherParcelList.length === 0 && parcels.map((p: any) => renderKhasraBlock(p, !!p.is_project_khasra))}
+                          {projectOwners.length > 0 && (
+                            <p style={{ margin: '0.5rem 0 0', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                              4. Project owners: {projectOwners.map((o: any) => o.owner_name).join(', ')}
+                              {otherOwners.length > 0 && ` · Other owners: ${otherOwners.filter((o: any) => o.owner_name).map((o: any) => o.owner_name).join(', ')}`}
+                            </p>
+                          )}
                         </>
                       );
                     })()}

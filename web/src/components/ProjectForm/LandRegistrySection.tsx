@@ -1,4 +1,5 @@
-import { Plus, Trash2, Users, UserCheck, AlertTriangle, Info } from 'lucide-react';
+import { useState } from 'react';
+import { Plus, Trash2, Users, UserCheck, AlertTriangle, Info, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, MapPin, CheckSquare } from 'lucide-react';
 import type { Dispatch, SetStateAction } from 'react';
 
 export interface LandRegistryMeta {
@@ -32,6 +33,13 @@ export interface LandOwnerRow {
   owner_type: OwnerType;
 }
 
+const WIZARD_STEPS = [
+  { num: 1, label: 'Khasra numbers' },
+  { num: 2, label: 'Owners & shares' },
+  { num: 3, label: 'Project khasras' },
+  { num: 4, label: 'Project owners' },
+] as const;
+
 export const emptyRegistryMeta = (): LandRegistryMeta => ({
   khatauni_number: '',
   ownership_type: 'single',
@@ -45,7 +53,7 @@ export const emptyParcel = (): LandParcelRow => ({
 export const emptyOwner = (khasraNo = ''): LandOwnerRow => ({
   owner_name: '', father_name: '', relation: '', khasra_no: khasraNo,
   area_sqm: '', area_hectare: '', share_fraction: '', share_percentage: '',
-  is_primary_owner: false, owner_type: 'project',
+  is_primary_owner: false, owner_type: 'other',
 });
 
 const LAND_TYPES = [
@@ -58,11 +66,41 @@ const LAND_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
-function fractionToPct(fraction: string): string {
+export function fractionToPct(fraction: string): string {
   if (!fraction.includes('/')) return '';
   const [a, b] = fraction.split('/').map(s => parseFloat(s.trim()));
   if (!a || !b) return '';
   return String(Math.round((a / b) * 10000) / 100);
+}
+
+/** Parse share input: "25%", "25", or "25/783". */
+export function parseShareInput(input: string): { share_fraction: string; share_percentage: string } {
+  const trimmed = input.trim();
+  if (!trimmed) return { share_fraction: '', share_percentage: '' };
+
+  if (trimmed.includes('/')) {
+    const parts = trimmed.split('/');
+    const a = parseFloat(parts[0]?.trim() ?? '');
+    const b = parseFloat(parts[1]?.trim() ?? '');
+    if (!Number.isNaN(a) && !Number.isNaN(b) && b !== 0) {
+      const pct = String(Math.round((a / b) * 10000) / 100);
+      return { share_fraction: `${a}/${b}`, share_percentage: pct };
+    }
+    return { share_fraction: trimmed, share_percentage: '' };
+  }
+
+  const pctMatch = trimmed.match(/^([\d.]+)\s*%?$/);
+  if (pctMatch) {
+    return { share_fraction: '', share_percentage: pctMatch[1] };
+  }
+
+  return { share_fraction: '', share_percentage: '' };
+}
+
+export function shareDisplay(o: LandOwnerRow): string {
+  if (o.share_fraction) return o.share_fraction;
+  if (o.share_percentage) return `${o.share_percentage}%`;
+  return '';
 }
 
 export function projectKhasraNumbers(parcels: LandParcelRow[]): string[] {
@@ -83,27 +121,19 @@ export function normalizeLandRegistryOnLoad(
   parcels: LandParcelRow[],
   owners: LandOwnerRow[],
 ): { parcels: LandParcelRow[]; owners: LandOwnerRow[] } {
-  let ps = parcels.length ? parcels.map(p => ({ ...p })) : [emptyParcel()];
+  const ps = parcels.length ? parcels.map(p => ({ ...p })) : [emptyParcel()];
   let os = owners.map(o => ({
     ...o,
-    owner_type: (o.owner_type === 'other' ? 'other' : 'project') as OwnerType,
+    owner_type: (o.owner_type === 'project' ? 'project' : 'other') as OwnerType,
   }));
 
-  const hasKhasra = ps.some(p => p.khasra_no.trim());
-  if (hasKhasra && !ps.some(p => p.is_project_khasra)) {
-    const idx = ps.findIndex(p => p.khasra_no.trim());
-    if (idx >= 0) ps[idx] = { ...ps[idx], is_project_khasra: true };
-  }
-
-  const targetKhasra = ps.find(p => p.is_project_khasra && p.khasra_no.trim())?.khasra_no.trim()
-    || ps.find(p => p.khasra_no.trim())?.khasra_no.trim()
-    || '';
+  const targetKhasra = ps.find(p => p.khasra_no.trim())?.khasra_no.trim() || '';
 
   if (targetKhasra) {
     os = os.map(o => ({
       ...o,
       khasra_no: o.khasra_no.trim() || targetKhasra,
-      owner_type: o.owner_type || 'project',
+      owner_type: o.owner_type || 'other',
     }));
   }
 
@@ -121,7 +151,7 @@ export function needsNoc(
 
   const projectOwners = owners.filter(o =>
     o.owner_name.trim()
-    && (o.owner_type || 'project') === 'project'
+    && (o.owner_type || 'other') === 'project'
     && projectKhasras.has(o.khasra_no.trim()),
   );
 
@@ -144,7 +174,7 @@ export function registryTotalSqm(parcels: LandParcelRow[], owners: LandOwnerRow[
   if (parcelTotal > 0) return parcelTotal;
   const projectKhasras = new Set(projectKhasraNumbers(parcels));
   const projectOwners = owners.filter(o =>
-    (o.owner_type || 'project') === 'project' && projectKhasras.has(o.khasra_no.trim()),
+    (o.owner_type || 'other') === 'project' && projectKhasras.has(o.khasra_no.trim()),
   );
   const ownerPool = projectOwners.length ? projectOwners : owners;
   return ownerPool.reduce((s, o) => s + (parseFloat(o.area_sqm) || 0), 0);
@@ -168,8 +198,8 @@ export function landRegistryToApi(
   const ownerRows = owners.filter(o => o.owner_name.trim());
   const projectKhasras = new Set(projectKhasraNumbers(parcels));
   const projectOwners = ownerRows.filter(o =>
-    (o.owner_type || 'project') === 'project'
-    && (!o.khasra_no.trim() || projectKhasras.has(o.khasra_no.trim()) || projectKhasras.size === 0),
+    (o.owner_type || 'other') === 'project'
+    && (!o.khasra_no.trim() || projectKhasras.has(o.khasra_no.trim())),
   );
   const ownership = meta.ownership_type === 'joint' || projectOwners.length >= 2 ? 'joint' : 'single';
   return {
@@ -191,9 +221,11 @@ export function landRegistryToApi(
     owners: ownerRows.map((o, i) => {
       const area_sqm = o.area_sqm ? Number(o.area_sqm) : null;
       const area_hectare = o.area_hectare ? Number(o.area_hectare) : null;
+      const parsed = parseShareInput(shareDisplay(o));
+      const share_fraction = (o.share_fraction || parsed.share_fraction).trim() || null;
       const share_percentage = o.share_percentage
         ? Number(o.share_percentage)
-        : (o.share_fraction ? Number(fractionToPct(o.share_fraction)) || null : null);
+        : (parsed.share_percentage ? Number(parsed.share_percentage) : (share_fraction ? Number(fractionToPct(share_fraction)) || null : null));
       return {
         owner_name: o.owner_name.trim(),
         father_name: o.father_name.trim() || null,
@@ -201,10 +233,10 @@ export function landRegistryToApi(
         khasra_no: o.khasra_no.trim() || null,
         area_sqm,
         area_hectare,
-        share_fraction: o.share_fraction.trim() || null,
+        share_fraction,
         share_percentage,
         is_primary_owner: o.is_primary_owner ? 1 : 0,
-        owner_type: o.owner_type === 'other' ? 'other' : 'project',
+        owner_type: o.owner_type === 'project' ? 'project' : 'other',
         sort_order: i,
       };
     }),
@@ -214,6 +246,27 @@ export function landRegistryToApi(
 export default function LandRegistrySection({
   meta, setMeta, landParcels, setLandParcels, landOwners, setLandOwners, farmerName,
 }: Props) {
+  const [wizardStep, setWizardStep] = useState(1);
+  const [expandedParcels, setExpandedParcels] = useState<Set<number>>(new Set());
+  const [stepError, setStepError] = useState('');
+
+  const validParcels = landParcels.filter(p => p.khasra_no.trim());
+  const projectKhasras = projectKhasraNumbers(landParcels);
+  const parcelTotalSqm = validParcels.reduce((s, p) => s + (parseFloat(p.area_sqm) || 0), 0);
+  const projectOwnerCount = landOwners.filter(o =>
+    o.owner_name.trim() && o.owner_type === 'project' && projectKhasras.includes(o.khasra_no.trim()),
+  ).length;
+  const nocRequired = needsNoc(landParcels, landOwners, meta);
+
+  const toggleParcelExpanded = (idx: number) => {
+    setExpandedParcels(prev => {
+      const next = new Set(prev);
+      if (next.has(idx)) next.delete(idx);
+      else next.add(idx);
+      return next;
+    });
+  };
+
   const updateParcel = (idx: number, field: keyof LandParcelRow, value: string | boolean) => {
     setLandParcels(prev => prev.map((row, i) => {
       if (i !== idx) return row;
@@ -243,12 +296,15 @@ export default function LandRegistrySection({
         const sqm = parseFloat(value);
         if (!Number.isNaN(sqm)) next.area_hectare = String(sqm / 10000);
       }
-      if (field === 'share_fraction' && typeof value === 'string') {
-        const pct = fractionToPct(value);
-        if (pct) next.share_percentage = pct;
-      }
       return next;
     }));
+  };
+
+  const updateOwnerShare = (idx: number, raw: string) => {
+    const parsed = parseShareInput(raw);
+    setLandOwners(prev => prev.map((row, i) =>
+      i === idx ? { ...row, share_fraction: parsed.share_fraction, share_percentage: parsed.share_percentage } : row,
+    ));
   };
 
   const addOwnerToKhasra = (khasraNo: string) => {
@@ -267,6 +323,14 @@ export default function LandRegistrySection({
     }
   };
 
+  const toggleProjectOwner = (idx: number, isProject: boolean) => {
+    setLandOwners(prev => prev.map((row, i) =>
+      i === idx
+        ? { ...row, owner_type: isProject ? 'project' as OwnerType : 'other', is_primary_owner: isProject ? row.is_primary_owner : false }
+        : row,
+    ));
+  };
+
   const fillFarmerAsProjectOwner = (khasraNo: string) => {
     if (!farmerName?.trim() || !khasraNo.trim()) return;
     const k = khasraNo.trim();
@@ -277,23 +341,54 @@ export default function LandRegistrySection({
           ? { ...row, owner_name: farmerName.trim(), owner_type: 'project' as OwnerType, is_primary_owner: true }
           : row);
       }
+      const nameMatch = prev.findIndex(o => o.khasra_no.trim() === k && o.owner_name.trim() === farmerName.trim());
+      if (nameMatch >= 0) {
+        return prev.map((row, i) => i === nameMatch
+          ? { ...row, owner_type: 'project' as OwnerType, is_primary_owner: true }
+          : row);
+      }
       return [...prev, { ...emptyOwner(k), owner_name: farmerName.trim(), is_primary_owner: true, owner_type: 'project' }];
     });
-    setMeta(m => ({ ...m, ownership_type: 'single' }));
   };
 
-  const projectKhasras = projectKhasraNumbers(landParcels);
-  const parcelTotalSqm = landParcels.reduce((s, p) => s + (parseFloat(p.area_sqm) || 0), 0);
-  const projectOwnerCount = landOwners.filter(o =>
-    o.owner_name.trim() && (o.owner_type || 'project') === 'project' && projectKhasras.includes(o.khasra_no.trim()),
-  ).length;
-  const nocRequired = needsNoc(landParcels, landOwners, meta);
+  const validateStep = (step: number): string => {
+    if (step === 1) {
+      if (!validParcels.length) return 'Add at least one khasra number before continuing.';
+      const missingArea = validParcels.some(p => !p.area_sqm || parseFloat(p.area_sqm) <= 0);
+      if (missingArea) return 'Enter area (SQM) for each khasra.';
+    }
+    if (step === 3 && validParcels.length > 0 && projectKhasras.length === 0) {
+      return 'Select at least one project khasra (greenhouse site).';
+    }
+    if (step === 4 && projectKhasras.length > 0 && projectOwnerCount === 0) {
+      return 'Select at least one project owner from the list.';
+    }
+    return '';
+  };
+
+  const goNext = () => {
+    const err = validateStep(wizardStep);
+    if (err) { setStepError(err); return; }
+    setStepError('');
+    setWizardStep(s => Math.min(4, s + 1));
+  };
+
+  const goBack = () => {
+    setStepError('');
+    setWizardStep(s => Math.max(1, s - 1));
+  };
+
+  const projectKhasraOwners = landOwners
+    .map((owner, index) => ({ owner, index }))
+    .filter(({ owner }) =>
+      owner.owner_name.trim() && projectKhasras.includes(owner.khasra_no.trim()),
+    );
 
   return (
     <div className="land-registry-section">
       <div className="land-registry-hint">
-        <strong>Land details from 7/12 &amp; NOC</strong> — First add all khasra numbers on this land record.
-        Then add owners under each khasra. Mark which khasras are part of the greenhouse project.
+        <strong>Land details from 7/12 &amp; NOC</strong> — Work through each step in order:
+        add khasra numbers, then owners, then mark project khasras, then pick project owners.
       </div>
 
       <div className="land-registry-meta">
@@ -306,205 +401,381 @@ export default function LandRegistrySection({
             placeholder="As on 8A certificate"
           />
         </div>
-        <div className="form-group" style={{ margin: 0 }}>
-          <label className="form-label">Land ownership</label>
-          <select
-            className="form-control"
-            value={meta.ownership_type}
-            onChange={e => setMeta(m => ({ ...m, ownership_type: e.target.value as 'single' | 'joint' }))}
-          >
-            <option value="single">Single owner</option>
-            <option value="joint">Joint owners (NOC required)</option>
-          </select>
-        </div>
       </div>
 
-      <div className="form-section land-registry-block">
-        <div className="form-section-header">
-          <Users size={18} className="form-section-icon" />
-          <h3 className="form-section-title">Step 1 — Khasra / plot numbers</h3>
+      <nav className="land-registry-wizard-steps" aria-label="Land registry steps">
+        {WIZARD_STEPS.map(({ num, label }) => (
+          <button
+            key={num}
+            type="button"
+            className={`land-registry-wizard-step${wizardStep === num ? ' is-active' : ''}${wizardStep > num ? ' is-done' : ''}`}
+            onClick={() => { setStepError(''); setWizardStep(num); }}
+          >
+            <span className="land-registry-wizard-step-num">{num}</span>
+            <span className="land-registry-wizard-step-label">{label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {stepError && (
+        <div className="land-registry-warn">
+          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+          <span>{stepError}</span>
         </div>
-        <div style={{ padding: '0 1.5rem 1.5rem' }}>
-          <p className="text-muted land-registry-block-desc">
-            One card per khasra on the land record. Check <strong>Project khasra</strong> for plots where the greenhouse will be built.
-          </p>
-          <div className="land-registry-parcel-list">
-            {landParcels.map((row, idx) => {
-              const khasraNo = row.khasra_no.trim();
+      )}
+
+      {/* Step 1 — Khasra numbers only */}
+      {wizardStep === 1 && (
+        <div className="form-section land-registry-block">
+          <div className="form-section-header">
+            <MapPin size={18} className="form-section-icon" />
+            <h3 className="form-section-title">1. Khasra numbers</h3>
+          </div>
+          <div style={{ padding: '0 1.5rem 1.5rem' }}>
+            <p className="text-muted land-registry-block-desc">
+              Enter each khasra number and its area from the 7/12 land record.
+              You will add owners in the next step.
+            </p>
+            <div className="land-registry-parcel-list">
+              {landParcels.map((row, idx) => {
+                const expanded = expandedParcels.has(idx);
+                return (
+                  <div key={idx} className="land-registry-parcel-card">
+                    <div className="land-registry-field-row land-registry-parcel-row-primary">
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Khasra number *</label>
+                        <input
+                          className="form-control"
+                          value={row.khasra_no}
+                          onChange={e => updateParcel(idx, 'khasra_no', e.target.value)}
+                          placeholder="421/187"
+                        />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Area (SQM) *</label>
+                        <input
+                          className="form-control"
+                          type="number"
+                          value={row.area_sqm}
+                          onChange={e => updateParcel(idx, 'area_sqm', e.target.value)}
+                          placeholder="e.g. 5000"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="land-registry-expand-btn"
+                      onClick={() => toggleParcelExpanded(idx)}
+                    >
+                      {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      {expanded ? 'Hide optional fields' : 'More fields (survey no., land type…)'}
+                    </button>
+
+                    {expanded && (
+                      <>
+                        <div className="land-registry-field-row">
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label">Survey no.</label>
+                            <input className="form-control" value={row.survey_no} onChange={e => updateParcel(idx, 'survey_no', e.target.value)} />
+                          </div>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label className="form-label">Land type</label>
+                            <select className="form-control" value={row.land_type} onChange={e => updateParcel(idx, 'land_type', e.target.value)}>
+                              {LAND_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                            </select>
+                          </div>
+                        </div>
+                        <div className="land-registry-parcel-actions">
+                          <label className="land-registry-encumbrance" title="Check if there is a loan or charge on this land">
+                            <input type="checkbox" checked={row.encumbrance} onChange={e => updateParcel(idx, 'encumbrance', e.target.checked)} />
+                            Loan/charge on this khasra
+                          </label>
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">Notes</label>
+                          <input className="form-control" value={row.notes} onChange={e => updateParcel(idx, 'notes', e.target.value)} />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="land-registry-parcel-actions">
+                      <button type="button" className="btn btn-outline btn-sm" onClick={() => removeParcel(idx)} title="Remove this khasra">
+                        <Trash2 size={14} /> Remove khasra
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandParcels(p => [...p, emptyParcel()])}>
+                <Plus size={14} /> Add khasra
+              </button>
+              {parcelTotalSqm > 0 && (
+                <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                  Total plot area: {parcelTotalSqm.toLocaleString('en-IN')} SQM ({(parcelTotalSqm / 10000).toFixed(4)} hectares)
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — Owners per khasra */}
+      {wizardStep === 2 && (
+        <div className="form-section land-registry-block">
+          <div className="form-section-header">
+            <Users size={18} className="form-section-icon" />
+            <h3 className="form-section-title">2. Owners &amp; shares</h3>
+          </div>
+          <div style={{ padding: '0 1.5rem 1.5rem' }}>
+            <p className="text-muted land-registry-block-desc">
+              For each khasra, add every owner listed on the 7/12 record.
+              Enter share as a percentage (e.g. <strong>25%</strong>) or proportion (e.g. <strong>25/783</strong>).
+              You will choose project owners in step 4.
+            </p>
+            {validParcels.length === 0 && (
+              <p className="text-muted">No khasras yet — go back to step 1 and add khasra numbers first.</p>
+            )}
+            {validParcels.map((parcel, pIdx) => {
+              const khasraNo = parcel.khasra_no.trim();
               const khasraOwners = ownersForKhasra(landOwners, khasraNo);
-              const projectOwnersOnKhasra = khasraOwners.filter(({ owner }) => (owner.owner_type || 'project') === 'project');
               const shareTotal = khasraOwners.reduce((s, { owner }) => s + (parseFloat(owner.share_percentage) || 0), 0);
               const hasShares = khasraOwners.some(({ owner }) => owner.share_percentage || owner.share_fraction);
 
               return (
-                <div
-                  key={idx}
-                  className={`land-registry-parcel-card${row.is_project_khasra ? ' is-project-khasra' : ''}`}
-                >
-                  <div className="land-registry-parcel-header">
-                    <label className="land-registry-project-khasra-label" title="Greenhouse will be built on this khasra">
+                <div key={pIdx} className="land-registry-parcel-card" style={{ marginBottom: '0.75rem' }}>
+                  <div className="land-registry-khasra-owners-header">
+                    <h4 className="land-registry-khasra-owners-title">
+                      Khasra {khasraNo}
+                      {parcel.area_sqm && (
+                        <span className="text-muted" style={{ fontWeight: 400, fontSize: '0.82rem', marginLeft: 8 }}>
+                          {parseFloat(parcel.area_sqm).toLocaleString('en-IN')} SQM
+                        </span>
+                      )}
+                    </h4>
+                  </div>
+
+                  {hasShares && khasraOwners.length >= 2 && shareTotal > 0 && Math.abs(shareTotal - 100) > 2 && (
+                    <div className="land-registry-warn" style={{ marginBottom: '0.5rem' }}>
+                      <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                      <span>Shares on this khasra add up to {shareTotal.toFixed(1)}% — they should total about 100%.</span>
+                    </div>
+                  )}
+
+                  {khasraOwners.map(({ owner, index: oIdx }) => (
+                    <div key={oIdx} className="land-registry-owner-card">
+                      <div className="land-registry-field-row">
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">Owner name *</label>
+                          <input className="form-control" value={owner.owner_name} onChange={e => updateOwner(oIdx, 'owner_name', e.target.value)} placeholder="Nathu Ram" />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">Father&apos;s name</label>
+                          <input className="form-control" value={owner.father_name} onChange={e => updateOwner(oIdx, 'father_name', e.target.value)} placeholder="Pemaram" />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">Relation</label>
+                          <input className="form-control" value={owner.relation} onChange={e => updateOwner(oIdx, 'relation', e.target.value)} placeholder="S/o" />
+                        </div>
+                      </div>
+                      <div className="land-registry-field-row">
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">Area (SQM)</label>
+                          <input className="form-control" type="number" value={owner.area_sqm} onChange={e => updateOwner(oIdx, 'area_sqm', e.target.value)} placeholder="Optional if share set" />
+                        </div>
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label">Share</label>
+                          <input
+                            className="form-control"
+                            value={shareDisplay(owner)}
+                            onChange={e => updateOwnerShare(oIdx, e.target.value)}
+                            placeholder="25% or 25/783"
+                          />
+                          {owner.share_percentage && owner.share_fraction && (
+                            <span className="text-muted" style={{ fontSize: '0.75rem' }}>
+                              = {owner.share_percentage}%
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="land-registry-owner-footer">
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => removeOwner(oIdx)}>
+                          <Trash2 size={14} /> Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => addOwnerToKhasra(khasraNo)}>
+                    <Plus size={14} /> Add owner to khasra {khasraNo}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Step 3 — Project khasras */}
+      {wizardStep === 3 && (
+        <div className="form-section land-registry-block">
+          <div className="form-section-header">
+            <MapPin size={18} className="form-section-icon" />
+            <h3 className="form-section-title">3. Project khasras</h3>
+          </div>
+          <div style={{ padding: '0 1.5rem 1.5rem' }}>
+            <p className="text-muted land-registry-block-desc">
+              Select which khasras are part of the greenhouse project site.
+              Other khasras on the same land record stay listed but are not part of the project.
+            </p>
+            {validParcels.length === 0 ? (
+              <p className="text-muted">No khasras yet — go back to step 1.</p>
+            ) : (
+              <div className="land-registry-project-khasra-list">
+                {landParcels.map((row, idx) => {
+                  const khasraNo = row.khasra_no.trim();
+                  if (!khasraNo) return null;
+                  const ownerCount = ownersForKhasra(landOwners, khasraNo).length;
+                  return (
+                    <label
+                      key={idx}
+                      className={`land-registry-project-khasra-item${row.is_project_khasra ? ' is-selected' : ''}`}
+                    >
                       <input
                         type="checkbox"
                         checked={row.is_project_khasra}
                         onChange={e => updateParcel(idx, 'is_project_khasra', e.target.checked)}
                       />
-                      Project khasra
-                    </label>
-                    {row.is_project_khasra && khasraNo && (
-                      <span className="land-registry-badge land-registry-badge-project">Greenhouse site</span>
-                    )}
-                  </div>
-
-                  <div className="land-registry-field-row land-registry-parcel-row-primary">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Khasra *</label>
-                      <input className="form-control" value={row.khasra_no} onChange={e => updateParcel(idx, 'khasra_no', e.target.value)} placeholder="421/187" />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Survey no.</label>
-                      <input className="form-control" value={row.survey_no} onChange={e => updateParcel(idx, 'survey_no', e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="land-registry-field-row">
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Area (SQM)</label>
-                      <input className="form-control" type="number" value={row.area_sqm} onChange={e => updateParcel(idx, 'area_sqm', e.target.value)} />
-                    </div>
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Land type</label>
-                      <select className="form-control" value={row.land_type} onChange={e => updateParcel(idx, 'land_type', e.target.value)}>
-                        {LAND_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                      </select>
-                    </div>
-                    <div className="land-registry-parcel-actions">
-                      <label className="land-registry-encumbrance" title="Check if there is a loan or charge on this land">
-                        <input type="checkbox" checked={row.encumbrance} onChange={e => updateParcel(idx, 'encumbrance', e.target.checked)} />
-                        Loan/charge
-                      </label>
-                      <button type="button" className="btn btn-outline btn-sm" onClick={() => removeParcel(idx)} title="Remove this khasra">
-                        <Trash2 size={14} /> Remove
-                      </button>
-                    </div>
-                  </div>
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label">Notes</label>
-                    <input className="form-control" value={row.notes} onChange={e => updateParcel(idx, 'notes', e.target.value)} />
-                  </div>
-
-                  {khasraNo && (
-                    <div className="land-registry-khasra-owners">
-                      <div className="land-registry-khasra-owners-header">
-                        <h4 className="land-registry-khasra-owners-title">Step 2 — Owners on khasra {khasraNo}</h4>
-                        {row.is_project_khasra && farmerName && (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => fillFarmerAsProjectOwner(khasraNo)}>
-                            <UserCheck size={14} /> Use farmer as project owner
-                          </button>
-                        )}
+                      <div className="land-registry-project-khasra-info">
+                        <strong>Khasra {khasraNo}</strong>
+                        <span className="text-muted">
+                          {row.area_sqm ? `${parseFloat(row.area_sqm).toLocaleString('en-IN')} SQM` : '—'}
+                          {ownerCount > 0 ? ` · ${ownerCount} owner${ownerCount !== 1 ? 's' : ''}` : ''}
+                        </span>
                       </div>
-                      <p className="text-muted land-registry-block-desc" style={{ margin: '0 0 0.5rem' }}>
-                        Add every owner on this khasra. Mark <strong>Project owner</strong> for those participating in the greenhouse; use <strong>Other owner</strong> for co-owners not in the project.
-                      </p>
-
-                      {row.is_project_khasra && meta.ownership_type === 'joint' && projectOwnersOnKhasra.length < 2 && (
-                        <div className="land-registry-warn" style={{ marginBottom: '0.5rem' }}>
-                          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-                          <span>Joint ownership selected — add all project owners on this khasra from the NOC.</span>
-                        </div>
+                      {row.is_project_khasra && (
+                        <span className="land-registry-badge land-registry-badge-project">Greenhouse site</span>
                       )}
-                      {hasShares && khasraOwners.length >= 2 && shareTotal > 0 && Math.abs(shareTotal - 100) > 2 && (
-                        <div className="land-registry-warn" style={{ marginBottom: '0.5rem' }}>
-                          <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-                          <span>Shares on this khasra add up to {shareTotal.toFixed(1)}% — they should total about 100%.</span>
-                        </div>
-                      )}
-
-                      {khasraOwners.map(({ owner, index: oIdx }) => (
-                        <div key={oIdx} className={`land-registry-owner-card${owner.is_primary_owner ? ' is-primary' : ''}`}>
-                          <div className="land-registry-field-row">
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label">Owner name *</label>
-                              <input className="form-control" value={owner.owner_name} onChange={e => updateOwner(oIdx, 'owner_name', e.target.value)} placeholder="Nathu Ram" />
-                            </div>
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label">Father&apos;s name</label>
-                              <input className="form-control" value={owner.father_name} onChange={e => updateOwner(oIdx, 'father_name', e.target.value)} placeholder="Pemaram" />
-                            </div>
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label">Relation</label>
-                              <input className="form-control" value={owner.relation} onChange={e => updateOwner(oIdx, 'relation', e.target.value)} placeholder="S/o" />
-                            </div>
-                          </div>
-                          <div className="land-registry-field-row">
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label">Area (Ha)</label>
-                              <input className="form-control" type="number" step="0.0001" value={owner.area_hectare} onChange={e => updateOwner(oIdx, 'area_hectare', e.target.value)} />
-                            </div>
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label">Share</label>
-                              <input className="form-control" value={owner.share_fraction} onChange={e => updateOwner(oIdx, 'share_fraction', e.target.value)} placeholder="1/6" />
-                            </div>
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label">%</label>
-                              <input className="form-control" type="number" step="0.01" value={owner.share_percentage} onChange={e => updateOwner(oIdx, 'share_percentage', e.target.value)} />
-                            </div>
-                            <div className="form-group" style={{ margin: 0 }}>
-                              <label className="form-label">Owner type</label>
-                              <select
-                                className="form-control"
-                                value={owner.owner_type || 'project'}
-                                onChange={e => updateOwner(oIdx, 'owner_type', e.target.value)}
-                              >
-                                <option value="project">Project owner</option>
-                                <option value="other">Other owner (not in project)</option>
-                              </select>
-                            </div>
-                          </div>
-                          <div className="land-registry-owner-footer">
-                            {row.is_project_khasra && (
-                              <label className="land-registry-primary-label" title="Main applicant on this project">
-                                <input type="checkbox" checked={owner.is_primary_owner} onChange={e => updateOwner(oIdx, 'is_primary_owner', e.target.checked)} />
-                                Primary owner
-                              </label>
-                            )}
-                            <button type="button" className="btn btn-outline btn-sm" onClick={() => removeOwner(oIdx)}>
-                              <Trash2 size={14} /> Remove
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-
-                      <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => addOwnerToKhasra(khasraNo)}>
-                        <Plus size={14} /> Add owner to this khasra
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandParcels(p => [...p, emptyParcel()])}>
-              <Plus size={14} /> Add khasra
-            </button>
-            {parcelTotalSqm > 0 && (
-              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-                Total plot area: {parcelTotalSqm.toLocaleString('en-IN')} SQM ({(parcelTotalSqm / 10000).toFixed(4)} hectares)
-              </span>
+                    </label>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
-      </div>
+      )}
 
-      {projectKhasras.length > 0 && (
-        <div className="land-registry-warn land-registry-noc-info">
-          <Info size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-          <span>
-            <strong>Step 3 — NOC reminder:</strong> NOC required for project khasras only:{' '}
-            <strong>{projectKhasras.join(', ')}</strong>.
-            {nocRequired
-              ? ` ${projectOwnerCount} project owner${projectOwnerCount !== 1 ? 's' : ''} listed — upload signed NOC from all project owners.`
-              : ' Single owner — NOC may not be required unless joint ownership applies.'}
-          </span>
+      {/* Step 4 — Project owners */}
+      {wizardStep === 4 && (
+        <div className="form-section land-registry-block">
+          <div className="form-section-header">
+            <CheckSquare size={18} className="form-section-icon" />
+            <h3 className="form-section-title">4. Project owners</h3>
+          </div>
+          <div style={{ padding: '0 1.5rem 1.5rem' }}>
+            <p className="text-muted land-registry-block-desc">
+              From owners already listed on project khasras, select who is participating in the greenhouse project.
+              Everyone else is automatically an &ldquo;other owner&rdquo; — no need to re-type names.
+            </p>
+            {projectKhasras.length === 0 ? (
+              <p className="text-muted">No project khasras selected — go back to step 3.</p>
+            ) : projectKhasraOwners.length === 0 ? (
+              <p className="text-muted">No owners on project khasras — go back to step 2 and add owners.</p>
+            ) : (
+              <>
+                {farmerName && (
+                  <div style={{ marginBottom: '0.75rem' }}>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => {
+                        for (const k of projectKhasras) fillFarmerAsProjectOwner(k);
+                      }}
+                    >
+                      <UserCheck size={14} /> Select farmer as project owner
+                    </button>
+                  </div>
+                )}
+                <div className="land-registry-project-owner-list">
+                  {projectKhasras.map(khasraNo => {
+                    const kOwners = projectKhasraOwners.filter(({ owner }) => owner.khasra_no.trim() === khasraNo);
+                    if (!kOwners.length) return null;
+                    return (
+                      <div key={khasraNo} className="land-registry-parcel-card">
+                        <h4 className="land-registry-khasra-owners-title" style={{ margin: '0 0 0.5rem' }}>
+                          Khasra {khasraNo}
+                        </h4>
+                        {kOwners.map(({ owner, index: oIdx }) => (
+                          <label
+                            key={oIdx}
+                            className={`land-registry-project-owner-item${owner.owner_type === 'project' ? ' is-project' : ''}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={owner.owner_type === 'project'}
+                              onChange={e => toggleProjectOwner(oIdx, e.target.checked)}
+                            />
+                            <div className="land-registry-project-owner-info">
+                              <strong>{owner.owner_name || 'Unnamed owner'}</strong>
+                              <span className="text-muted">
+                                {[owner.relation, owner.father_name && `father: ${owner.father_name}`].filter(Boolean).join(' · ')}
+                                {shareDisplay(owner) ? ` · Share: ${shareDisplay(owner)}` : ''}
+                              </span>
+                            </div>
+                            {owner.owner_type === 'project' && (
+                              <label className="land-registry-primary-label" onClick={e => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={owner.is_primary_owner}
+                                  onChange={e => updateOwner(oIdx, 'is_primary_owner', e.target.checked)}
+                                />
+                                Primary
+                              </label>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {projectKhasras.length > 0 && (
+              <div className="land-registry-warn land-registry-noc-info" style={{ marginTop: '1rem' }}>
+                <Info size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                <span>
+                  <strong>NOC reminder:</strong> Required for project khasras: <strong>{projectKhasras.join(', ')}</strong>.
+                  {nocRequired
+                    ? ` ${projectOwnerCount} project owner${projectOwnerCount !== 1 ? 's' : ''} selected — upload signed NOC from all project owners.`
+                    : ' Single project owner — NOC may not be required unless joint ownership applies.'}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       )}
+
+      <div className="land-registry-wizard-nav">
+        <button
+          type="button"
+          className="btn btn-outline"
+          onClick={goBack}
+          disabled={wizardStep === 1}
+        >
+          <ChevronLeft size={16} /> Back
+        </button>
+        <span className="land-registry-wizard-nav-label">
+          Step {wizardStep} of 4 — {WIZARD_STEPS[wizardStep - 1].label}
+        </span>
+        {wizardStep < 4 ? (
+          <button type="button" className="btn btn-primary" onClick={goNext}>
+            Next <ChevronRight size={16} />
+          </button>
+        ) : (
+          <span className="text-muted" style={{ fontSize: '0.82rem' }}>Save project to keep land details</span>
+        )}
+      </div>
     </div>
   );
 }

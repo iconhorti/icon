@@ -293,6 +293,146 @@
   min-width: 0;
 }
 
+/* Wizard stepper */
+.land-registry-wizard-steps {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.land-registry-wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.78rem;
+  color: #64748b;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.land-registry-wizard-step:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.land-registry-wizard-step.is-active {
+  border-color: var(--color-primary, #1a472a);
+  background: var(--color-primary-soft, #e8f5e9);
+  color: var(--color-primary, #1a472a);
+  font-weight: 600;
+}
+
+.land-registry-wizard-step.is-done {
+  color: #334155;
+}
+
+.land-registry-wizard-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.land-registry-wizard-step.is-active .land-registry-wizard-step-num {
+  background: var(--color-primary, #1a472a);
+  color: #fff;
+}
+
+.land-registry-wizard-step.is-done .land-registry-wizard-step-num {
+  background: #bbf7d0;
+  color: #166534;
+}
+
+.land-registry-wizard-step-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.land-registry-wizard-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.land-registry-wizard-nav-label {
+  font-size: 0.82rem;
+  color: #64748b;
+  text-align: center;
+  flex: 1;
+}
+
+.land-registry-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--color-primary, #1a472a);
+  cursor: pointer;
+  text-decoration: underline;
+  align-self: flex-start;
+}
+
+.land-registry-project-khasra-list,
+.land-registry-project-owner-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.land-registry-project-khasra-item,
+.land-registry-project-owner-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #fff;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.land-registry-project-khasra-item.is-selected,
+.land-registry-project-owner-item.is-project {
+  border-color: rgba(26, 71, 42, 0.35);
+  background: #f8fdf9;
+}
+
+.land-registry-project-khasra-info,
+.land-registry-project-owner-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.85rem;
+}
+
+.land-registry-project-khasra-info .text-muted,
+.land-registry-project-owner-info .text-muted {
+  font-size: 0.78rem;
+}
+
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
   .form-section-body {
@@ -313,6 +453,19 @@
   .land-registry-owner-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .land-registry-wizard-steps {
+    flex-direction: column;
+  }
+
+  .land-registry-wizard-nav {
+    flex-direction: column;
+  }
+
+  .land-registry-wizard-nav .btn {
+    width: 100%;
+    justify-content: center;
   }
   
   .form-actions {
