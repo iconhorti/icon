@@ -1,5 +1,5 @@
 import { Plus, Trash2, Users, UserCheck, AlertTriangle } from 'lucide-react';
-import type { CSSProperties, Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
 export interface LandRegistryMeta {
   khatauni_number: string;
@@ -123,27 +123,6 @@ export function landRegistryToApi(
   };
 }
 
-const hintBox: CSSProperties = {
-  fontSize: '0.82rem',
-  color: '#475569',
-  background: '#f8fafc',
-  border: '1px solid #e2e8f0',
-  borderRadius: 8,
-  padding: '0.6rem 0.75rem',
-  marginBottom: '0.75rem',
-  lineHeight: 1.45,
-};
-
-const warnBox: CSSProperties = {
-  ...hintBox,
-  color: '#92400e',
-  background: '#fffbeb',
-  borderColor: '#fde68a',
-  display: 'flex',
-  gap: 8,
-  alignItems: 'flex-start',
-};
-
 export default function LandRegistrySection({
   meta, setMeta, landParcels, setLandParcels, landOwners, setLandOwners, farmerName,
 }: Props) {
@@ -191,91 +170,97 @@ export default function LandRegistrySection({
   };
 
   return (
-    <>
-      <div style={hintBox}>
+    <div className="land-registry-section">
+      <div className="land-registry-hint">
         <strong>Land details from 7/12 &amp; NOC</strong> — Enter the khasra number and all owners exactly as printed on the land papers.
         For joint family land, choose <em>Joint</em> and add every owner from the NOC.
       </div>
 
-      <div className="form-section" style={{ marginBottom: '1rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Khatauni / 8A number</label>
-            <input
-              className="form-control"
-              value={meta.khatauni_number}
-              onChange={e => setMeta(m => ({ ...m, khatauni_number: e.target.value }))}
-              placeholder="As on 8A certificate"
-            />
-          </div>
-          <div className="form-group" style={{ margin: 0 }}>
-            <label className="form-label">Land ownership</label>
-            <select
-              className="form-control"
-              value={isJoint ? 'joint' : meta.ownership_type}
-              onChange={e => setMeta(m => ({ ...m, ownership_type: e.target.value as 'single' | 'joint' }))}
-            >
-              <option value="single">Single owner</option>
-              <option value="joint">Joint owners (NOC required)</option>
-            </select>
-          </div>
+      <div className="land-registry-meta">
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="form-label">Khatauni / 8A number</label>
+          <input
+            className="form-control"
+            value={meta.khatauni_number}
+            onChange={e => setMeta(m => ({ ...m, khatauni_number: e.target.value }))}
+            placeholder="As on 8A certificate"
+          />
+        </div>
+        <div className="form-group" style={{ margin: 0 }}>
+          <label className="form-label">Land ownership</label>
+          <select
+            className="form-control"
+            value={isJoint ? 'joint' : meta.ownership_type}
+            onChange={e => setMeta(m => ({ ...m, ownership_type: e.target.value as 'single' | 'joint' }))}
+          >
+            <option value="single">Single owner</option>
+            <option value="joint">Joint owners (NOC required)</option>
+          </select>
         </div>
       </div>
 
-      <div className="form-section">
+      <div className="form-section land-registry-block">
         <div className="form-section-header">
           <Users size={18} className="form-section-icon" />
           <h3 className="form-section-title">Khasra / plot numbers</h3>
         </div>
-        <p className="text-muted" style={{ fontSize: '0.82rem', margin: '0 0 0.75rem' }}>
-          One line per khasra. Example: <strong>421/187</strong> with area in square metres (SQM).
-        </p>
-        <div className="form-section-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {landParcels.map((row, idx) => (
-            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 1fr 0.9fr 1fr 0.7fr auto', gap: '0.5rem', alignItems: 'end' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Khasra *</label>
-                <input className="form-control" value={row.khasra_no} onChange={e => updateParcel(idx, 'khasra_no', e.target.value)} placeholder="421/187" />
+        <div style={{ padding: '0 1.5rem 1.5rem' }}>
+          <p className="text-muted land-registry-block-desc">
+            One line per khasra. Example: <strong>421/187</strong> with area in square metres (SQM).
+          </p>
+          <div className="land-registry-parcel-list">
+            {landParcels.map((row, idx) => (
+              <div key={idx} className="land-registry-parcel-card">
+                <div className="land-registry-field-row land-registry-parcel-row-primary">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Khasra *</label>
+                    <input className="form-control" value={row.khasra_no} onChange={e => updateParcel(idx, 'khasra_no', e.target.value)} placeholder="421/187" />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Survey no.</label>
+                    <input className="form-control" value={row.survey_no} onChange={e => updateParcel(idx, 'survey_no', e.target.value)} />
+                  </div>
+                </div>
+                <div className="land-registry-field-row">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Area (SQM)</label>
+                    <input className="form-control" type="number" value={row.area_sqm} onChange={e => updateParcel(idx, 'area_sqm', e.target.value)} />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Land type</label>
+                    <select className="form-control" value={row.land_type} onChange={e => updateParcel(idx, 'land_type', e.target.value)}>
+                      {LAND_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div className="land-registry-parcel-actions">
+                    <label className="land-registry-encumbrance" title="Check if there is a loan or charge on this land">
+                      <input type="checkbox" checked={row.encumbrance} onChange={e => updateParcel(idx, 'encumbrance', e.target.checked)} />
+                      Loan/charge
+                    </label>
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => setLandParcels(p => p.filter((_, i) => i !== idx))} title="Remove this khasra">
+                      <Trash2 size={14} /> Remove
+                    </button>
+                  </div>
+                </div>
+                <div className="form-group" style={{ margin: 0 }}>
+                  <label className="form-label">Notes</label>
+                  <input className="form-control" value={row.notes} onChange={e => updateParcel(idx, 'notes', e.target.value)} />
+                </div>
               </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Survey no.</label>
-                <input className="form-control" value={row.survey_no} onChange={e => updateParcel(idx, 'survey_no', e.target.value)} />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Area (SQM)</label>
-                <input className="form-control" type="number" value={row.area_sqm} onChange={e => updateParcel(idx, 'area_sqm', e.target.value)} />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Land type</label>
-                <select className="form-control" value={row.land_type} onChange={e => updateParcel(idx, 'land_type', e.target.value)}>
-                  {LAND_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Notes</label>
-                <input className="form-control" value={row.notes} onChange={e => updateParcel(idx, 'notes', e.target.value)} />
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', marginBottom: 8 }} title="Check if there is a loan or charge on this land">
-                <input type="checkbox" checked={row.encumbrance} onChange={e => updateParcel(idx, 'encumbrance', e.target.checked)} />
-                Loan/charge
-              </label>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setLandParcels(p => p.filter((_, i) => i !== idx))} title="Remove this khasra">
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ))}
-          <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandParcels(p => [...p, emptyParcel()])}>
-            <Plus size={14} /> Add another khasra
-          </button>
-          {parcelTotalSqm > 0 && (
-            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-              Total plot area: {parcelTotalSqm.toLocaleString('en-IN')} SQM ({(parcelTotalSqm / 10000).toFixed(4)} hectares)
-            </span>
-          )}
+            ))}
+            <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandParcels(p => [...p, emptyParcel()])}>
+              <Plus size={14} /> Add another khasra
+            </button>
+            {parcelTotalSqm > 0 && (
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                Total plot area: {parcelTotalSqm.toLocaleString('en-IN')} SQM ({(parcelTotalSqm / 10000).toFixed(4)} hectares)
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="form-section">
+      <div className="form-section land-registry-block">
         <div className="form-section-header" style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Users size={18} className="form-section-icon" />
@@ -287,85 +272,87 @@ export default function LandRegistrySection({
             </button>
           )}
         </div>
-        <p className="text-muted" style={{ fontSize: '0.82rem', margin: '0 0 0.75rem' }}>
-          List every name on the NOC. Mark the main applicant as <strong>Primary</strong>. Share can be entered as a fraction (e.g. 1/6).
-        </p>
+        <div style={{ padding: '0 1.5rem 1.5rem' }}>
+          <p className="text-muted land-registry-block-desc">
+            List every name on the NOC. Mark the main applicant as <strong>Primary</strong>. Share can be entered as a fraction (e.g. 1/6).
+          </p>
 
-        {isJoint && ownerCount < 2 && (
-          <div style={warnBox}>
-            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-            <span>Joint ownership is selected but only one owner is listed. Add all co-owners from the NOC.</span>
-          </div>
-        )}
-        {hasShares && ownerCount >= 2 && shareTotal > 0 && Math.abs(shareTotal - 100) > 2 && (
-          <div style={warnBox}>
-            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-            <span>Owner shares add up to {shareTotal.toFixed(1)}% — they should total about 100%. Please check the NOC.</span>
-          </div>
-        )}
-        {parcelTotalSqm > 0 && ownerTotalSqm > 0 && Math.abs(parcelTotalSqm - ownerTotalSqm) > parcelTotalSqm * 0.05 && (
-          <div style={warnBox}>
-            <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-            <span>Plot area ({parcelTotalSqm.toLocaleString('en-IN')} SQM) and owner areas ({ownerTotalSqm.toLocaleString('en-IN')} SQM) do not match closely. One may be per-share — verify against the NOC.</span>
-          </div>
-        )}
-
-        <div className="form-section-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {landOwners.map((row, idx) => (
-            <div key={idx} style={{
-              display: 'grid',
-              gridTemplateColumns: '1.3fr 0.9fr 0.9fr 0.8fr 0.7fr 0.6fr 0.6fr 0.5fr auto',
-              gap: '0.5rem', alignItems: 'end', padding: '0.5rem',
-              background: row.is_primary_owner ? 'var(--color-primary-soft)' : 'transparent',
-              borderRadius: 8,
-            }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Owner name *</label>
-                <input className="form-control" value={row.owner_name} onChange={e => updateOwner(idx, 'owner_name', e.target.value)} placeholder="Nathu Ram" />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Father&apos;s name</label>
-                <input className="form-control" value={row.father_name} onChange={e => updateOwner(idx, 'father_name', e.target.value)} placeholder="Pemaram" />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Relation</label>
-                <input className="form-control" value={row.relation} onChange={e => updateOwner(idx, 'relation', e.target.value)} placeholder="S/o" />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Khasra</label>
-                <input className="form-control" value={row.khasra_no} onChange={e => updateOwner(idx, 'khasra_no', e.target.value)} placeholder={primaryKhasra || '421/187'} />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Area (Ha)</label>
-                <input className="form-control" type="number" step="0.0001" value={row.area_hectare} onChange={e => updateOwner(idx, 'area_hectare', e.target.value)} />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">Share</label>
-                <input className="form-control" value={row.share_fraction} onChange={e => updateOwner(idx, 'share_fraction', e.target.value)} placeholder="1/6" />
-              </div>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label">%</label>
-                <input className="form-control" type="number" step="0.01" value={row.share_percentage} onChange={e => updateOwner(idx, 'share_percentage', e.target.value)} />
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.78rem', marginBottom: 8 }} title="Main applicant on this project">
-                <input type="checkbox" checked={row.is_primary_owner} onChange={e => updateOwner(idx, 'is_primary_owner', e.target.checked)} />
-                Primary
-              </label>
-              <button type="button" className="btn btn-outline btn-sm" onClick={() => setLandOwners(o => o.filter((_, i) => i !== idx))}>
-                <Trash2 size={14} />
-              </button>
+          {isJoint && ownerCount < 2 && (
+            <div className="land-registry-warn" style={{ marginBottom: '0.75rem' }}>
+              <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>Joint ownership is selected but only one owner is listed. Add all co-owners from the NOC.</span>
             </div>
-          ))}
-          <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandOwners(o => [...o, emptyOwner()])}>
-            <Plus size={14} /> Add another owner
-          </button>
-          {ownerTotalSqm > 0 && (
-            <span className="text-muted" style={{ fontSize: '0.8rem' }}>
-              Total owner area: {ownerTotalSqm.toLocaleString('en-IN')} SQM ({(ownerTotalSqm / 10000).toFixed(4)} hectares)
-            </span>
           )}
+          {hasShares && ownerCount >= 2 && shareTotal > 0 && Math.abs(shareTotal - 100) > 2 && (
+            <div className="land-registry-warn" style={{ marginBottom: '0.75rem' }}>
+              <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>Owner shares add up to {shareTotal.toFixed(1)}% — they should total about 100%. Please check the NOC.</span>
+            </div>
+          )}
+          {parcelTotalSqm > 0 && ownerTotalSqm > 0 && Math.abs(parcelTotalSqm - ownerTotalSqm) > parcelTotalSqm * 0.05 && (
+            <div className="land-registry-warn" style={{ marginBottom: '0.75rem' }}>
+              <AlertTriangle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+              <span>Plot area ({parcelTotalSqm.toLocaleString('en-IN')} SQM) and owner areas ({ownerTotalSqm.toLocaleString('en-IN')} SQM) do not match closely. One may be per-share — verify against the NOC.</span>
+            </div>
+          )}
+
+          <div className="land-registry-owner-list">
+            {landOwners.map((row, idx) => (
+              <div key={idx} className={`land-registry-owner-card${row.is_primary_owner ? ' is-primary' : ''}`}>
+                <div className="land-registry-field-row">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Owner name *</label>
+                    <input className="form-control" value={row.owner_name} onChange={e => updateOwner(idx, 'owner_name', e.target.value)} placeholder="Nathu Ram" />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Father&apos;s name</label>
+                    <input className="form-control" value={row.father_name} onChange={e => updateOwner(idx, 'father_name', e.target.value)} placeholder="Pemaram" />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Relation</label>
+                    <input className="form-control" value={row.relation} onChange={e => updateOwner(idx, 'relation', e.target.value)} placeholder="S/o" />
+                  </div>
+                </div>
+                <div className="land-registry-field-row">
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Khasra</label>
+                    <input className="form-control" value={row.khasra_no} onChange={e => updateOwner(idx, 'khasra_no', e.target.value)} placeholder={primaryKhasra || '421/187'} />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Area (Ha)</label>
+                    <input className="form-control" type="number" step="0.0001" value={row.area_hectare} onChange={e => updateOwner(idx, 'area_hectare', e.target.value)} />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">Share</label>
+                    <input className="form-control" value={row.share_fraction} onChange={e => updateOwner(idx, 'share_fraction', e.target.value)} placeholder="1/6" />
+                  </div>
+                  <div className="form-group" style={{ margin: 0 }}>
+                    <label className="form-label">%</label>
+                    <input className="form-control" type="number" step="0.01" value={row.share_percentage} onChange={e => updateOwner(idx, 'share_percentage', e.target.value)} />
+                  </div>
+                </div>
+                <div className="land-registry-owner-footer">
+                  <label className="land-registry-primary-label" title="Main applicant on this project">
+                    <input type="checkbox" checked={row.is_primary_owner} onChange={e => updateOwner(idx, 'is_primary_owner', e.target.checked)} />
+                    Primary owner
+                  </label>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setLandOwners(o => o.filter((_, i) => i !== idx))}>
+                    <Trash2 size={14} /> Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button type="button" className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setLandOwners(o => [...o, emptyOwner()])}>
+              <Plus size={14} /> Add another owner
+            </button>
+            {ownerTotalSqm > 0 && (
+              <span className="text-muted" style={{ fontSize: '0.8rem' }}>
+                Total owner area: {ownerTotalSqm.toLocaleString('en-IN')} SQM ({(ownerTotalSqm / 10000).toFixed(4)} hectares)
+              </span>
+            )}
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
