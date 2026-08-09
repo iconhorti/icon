@@ -1,5 +1,7 @@
-import { type RefObject } from 'react';
-import { ArrowLeft, X, Upload, FileText, Loader2, CheckCircle } from 'lucide-react';
+import { useRef, type RefObject, type DragEvent } from 'react';
+import { ArrowLeft, X, Upload, FileText, Loader2, CheckCircle, UploadCloud } from 'lucide-react';
+import Badge from '../Badge';
+import '../../pages/Documents.css';
 
 interface ProjectFormDocumentsProps {
   existingDocs: any[];
@@ -25,6 +27,19 @@ interface ProjectFormDocumentsProps {
 
 const NOC_DOC_TYPE = 'NOC / Land Owner Consent';
 
+const REQUIRED_LAND_DOCS = [
+  '7/12 Extract (Land Record)',
+  '8A Certificate',
+  NOC_DOC_TYPE,
+];
+
+const fileHref = (url: string | null | undefined): string => {
+  if (!url) return '#';
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/api')) return url;
+  return `/api/v1${url}`;
+};
+
 export default function ProjectFormDocuments({
   existingDocs, docTypesByCategory, docType, setDocType,
   docFile, setDocFile, docRemarks, setDocRemarks,
@@ -32,194 +47,233 @@ export default function ProjectFormDocuments({
   fileInputRef, navigate, fmtSize, savedProjectId,
   setActiveTab, docTypesList = [], isJointLand = false,
 }: ProjectFormDocumentsProps) {
-  const hasNocUploaded = existingDocs.some(d => d.document_type === NOC_DOC_TYPE);
+  const localFileRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = fileInputRef ?? localFileRef;
+
+  const uploadedTypes = new Set(existingDocs.map(d => d.document_type));
+  const hasNocUploaded = uploadedTypes.has(NOC_DOC_TYPE);
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const f = e.dataTransfer.files[0];
+    if (f) setDocFile(f);
+  };
 
   return (
-    <div className="animate-fade-in">
-          {!savedProjectId ? (
-            <div style={{
-              textAlign: 'center', padding: '3rem',
-              color: 'var(--color-text-muted)', border: '2px dashed var(--glass-border)',
-              borderRadius: 12,
-            }}>
-              <FileText size={40} style={{ opacity: 0.3, marginBottom: 8 }} />
-              <p>Save the project first (complete Components tab) to upload documents.</p>
-              <button className="btn btn-primary" style={{ marginTop: '1rem' }} onClick={() => setActiveTab('components')}>
-                Go to Components
-              </button>
+    <div className="pf-docs-section animate-fade-in">
+      {!savedProjectId ? (
+        <div className="empty-state glass-card">
+          <FileText size={40} className="empty-icon" />
+          <h3>Save project first</h3>
+          <p>Complete the Components tab to unlock document uploads for this project.</p>
+          <button type="button" className="btn btn-primary" onClick={() => setActiveTab('components')}>
+            Go to Components
+          </button>
+        </div>
+      ) : (
+        <>
+          {isJointLand && !hasNocUploaded && (
+            <div className="upload-error" style={{ marginBottom: 0 }}>
+              <strong>Joint land — NOC required:</strong> Upload signed <strong>{NOC_DOC_TYPE}</strong> from every owner.
             </div>
-          ) : (
-            <>
-              {isJointLand && !hasNocUploaded && (
-                <div style={{
-                  marginBottom: '1rem', fontSize: '0.85rem', color: '#92400e', background: '#fffbeb',
-                  border: '1px solid #fde68a', borderRadius: 8, padding: '0.75rem 1rem',
-                }}>
-                  <strong>Joint land — NOC required:</strong> Upload the signed <strong>{NOC_DOC_TYPE}</strong> from every owner listed on the NOC.
+          )}
+
+          {/* Required land documents checklist */}
+          <div className="glass-card detail-card">
+            <div className="card-header">
+              <h3 className="card-title">Required Land Documents</h3>
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                {REQUIRED_LAND_DOCS.filter(t => uploadedTypes.has(t) || (t === NOC_DOC_TYPE && !isJointLand)).length}
+                /{isJointLand ? REQUIRED_LAND_DOCS.length : 2} complete
+              </span>
+            </div>
+            <div className="card-body">
+              <div className="pf-land-checklist">
+                {REQUIRED_LAND_DOCS.filter(t => t !== NOC_DOC_TYPE || isJointLand).map(label => {
+                  const done = uploadedTypes.has(label);
+                  return (
+                    <div key={label} className={`pf-land-check-item ${done ? 'done' : 'missing'}`}>
+                      {done ? <CheckCircle size={16} /> : <span style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid currentColor', opacity: 0.35 }} />}
+                      <span>{label.replace(' (Land Record)', '')}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Upload Panel */}
+          <div className="glass-card detail-card">
+            <div className="card-header">
+              <h3 className="card-title"><Upload size={17} /> Upload Document</h3>
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                Project #{savedProjectId}
+              </span>
+            </div>
+            <div className="card-body">
+              {docError && (
+                <div className="upload-error" style={{ marginBottom: '0.75rem' }}>
+                  {docError}
                 </div>
               )}
-              {isJointLand && hasNocUploaded && (
-                <div style={{
-                  marginBottom: '1rem', fontSize: '0.85rem', color: '#166534', background: '#f0fdf4',
-                  border: '1px solid #bbf7d0', borderRadius: 8, padding: '0.75rem 1rem',
-                }}>
-                  ✓ {NOC_DOC_TYPE} is on file.
-                </div>
-              )}
-              {/* Upload Panel */}
-              <div className="glass-card detail-card" style={{ marginBottom: '1.25rem' }}>
-                <div className="card-header">
-                  <h3 className="card-title"><Upload size={17} /> Upload Land Document</h3>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                    Project #{savedProjectId}
-                  </span>
-                </div>
-                <div className="card-body">
-                  {docError && (
-                    <div className="error-banner" style={{ marginBottom: '0.75rem' }}>
-                      {docError}
-                    </div>
-                  )}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+
+              <div
+                className={`drop-zone ${docFile ? 'has-file' : ''}`}
+                style={{ marginBottom: '1rem' }}
+                onDragOver={e => e.preventDefault()}
+                onDrop={handleDrop}
+                onClick={() => inputRef.current?.click()}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => e.key === 'Enter' && inputRef.current?.click()}
+              >
+                <input
+                  ref={inputRef}
+                  type="file"
+                  hidden
+                  accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
+                  onChange={e => setDocFile(e.target.files?.[0] || null)}
+                />
+                {docFile ? (
+                  <div className="file-preview">
+                    <FileText size={20} />
                     <div>
-                      <label className="form-label">Document Type *</label>
-                      <select
-                        className="form-control"
-                        value={docType}
-                        onChange={e => setDocType(e.target.value)}
-                      >
-                        {/* Grouped by category if available, flat list as fallback */}
-                        {Object.keys(docTypesByCategory).length > 0
-                          ? Object.entries(docTypesByCategory).map(([cat, items]) => (
-                              <optgroup key={cat} label={`── ${cat} ──`}>
-                                {items.map(dt => (
-                                  <option key={dt.name} value={dt.name}>
-                                    {dt.name}{dt.is_required ? ' *' : ''}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            ))
-                          : docTypesList.map(t => <option key={t} value={t}>{t}</option>)
-                        }
-                      </select>
+                      <p className="file-name">{docFile.name}</p>
+                      <p className="file-size">{fmtSize(docFile.size)}</p>
                     </div>
-                    <div>
-                      <label className="form-label">File *</label>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
-                        className="form-control"
-                        style={{ padding: '0.4rem' }}
-                        onChange={e => setDocFile(e.target.files?.[0] || null)}
-                      />
-                      {docFile && (
-                        <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: 4 }}>
-                          📎 {docFile.name} ({fmtSize(docFile.size)})
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="form-label">Remarks</label>
-                      <input
-                        className="form-control"
-                        placeholder="Optional notes..."
-                        value={docRemarks}
-                        onChange={e => setDocRemarks(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                     <button
-                      className="btn btn-primary"
-                      onClick={handleDocUpload}
-                      disabled={!docFile || docUploading}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                      type="button"
+                      className="remove-file"
+                      onClick={e => { e.stopPropagation(); setDocFile(null); }}
                     >
-                      {docUploading
-                        ? <><Loader2 size={15} className="spin" /> Uploading…</>
-                        : <><Upload size={15} /> Upload</>
-                      }
+                      <X size={16} />
                     </button>
                   </div>
+                ) : (
+                  <>
+                    <UploadCloud size={32} className="drop-icon" />
+                    <p className="drop-text">Drag & drop or <span>browse</span> to choose a file</p>
+                    <p className="drop-hint">PDF, JPG, PNG, Word, Excel — max 10MB</p>
+                  </>
+                )}
+              </div>
+
+              <div className="pf-upload-grid">
+                <div>
+                  <label className="form-label">Document Type *</label>
+                  <select
+                    className="form-control"
+                    value={docType}
+                    onChange={e => setDocType(e.target.value)}
+                  >
+                    {Object.keys(docTypesByCategory).length > 0
+                      ? Object.entries(docTypesByCategory).map(([cat, items]) => (
+                          <optgroup key={cat} label={`── ${cat} ──`}>
+                            {items.map(dt => (
+                              <option key={dt.name} value={dt.name}>
+                                {dt.name}{dt.is_required ? ' *' : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))
+                      : docTypesList.map(t => <option key={t} value={t}>{t}</option>)
+                    }
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Remarks</label>
+                  <input
+                    className="form-control"
+                    placeholder="Optional notes…"
+                    value={docRemarks}
+                    onChange={e => setDocRemarks(e.target.value)}
+                  />
                 </div>
               </div>
 
-              {/* Existing Documents */}
-              <div className="glass-card detail-card">
-                <div className="card-header">
-                  <h3 className="card-title"><FileText size={17} /> Uploaded Documents</h3>
-                  <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                    {existingDocs.length} file{existingDocs.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <div className="card-body">
-                  {existingDocs.length === 0 ? (
-                    <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', textAlign: 'center', padding: '1.5rem 0' }}>
-                      No documents uploaded yet.
-                    </p>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {existingDocs.map(doc => (
-                        <div
-                          key={doc.id}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: '0.75rem',
-                            padding: '0.625rem 0.875rem',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: 8,
-                            background: 'var(--color-bg-base)',
-                          }}
-                        >
-                          <FileText size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--color-text-main)' }}>
-                              {doc.document_type}
-                            </p>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {doc.file_name} · {fmtSize(doc.file_size)}
-                              {doc.is_verified ? ' · ✅ Verified' : ''}
-                            </p>
-                          </div>
-                          <a
-                            href={`http://localhost:8000/api/v1${doc.file_url}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-outline btn-sm"
-                            style={{ fontSize: '0.75rem', flexShrink: 0 }}
-                          >
-                            View
-                          </a>
-                          <button
-                            className="btn btn-outline btn-sm"
-                            style={{ fontSize: '0.75rem', color: '#ef4444', flexShrink: 0 }}
-                            onClick={() => handleDeleteDoc(doc.id)}
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Finish */}
-              <div className="form-actions" style={{ marginTop: '1.5rem' }}>
-                <button className="btn btn-outline" onClick={() => setActiveTab('components')}>
-                  <ArrowLeft size={16} /> Back to Components
-                </button>
+              <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
+                  type="button"
                   className="btn btn-primary"
-                  onClick={() => navigate(`/projects/${savedProjectId}`)}
+                  onClick={handleDocUpload}
+                  disabled={!docFile || docUploading}
                   style={{ display: 'flex', alignItems: 'center', gap: 6 }}
                 >
-                  <CheckCircle size={16} /> View Project
+                  {docUploading
+                    ? <><Loader2 size={15} className="spin" /> Uploading…</>
+                    : <><Upload size={15} /> Upload</>
+                  }
                 </button>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
 
+          {/* Existing Documents */}
+          <div className="glass-card detail-card">
+            <div className="card-header">
+              <h3 className="card-title"><FileText size={17} /> Uploaded Documents</h3>
+              <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                {existingDocs.length} file{existingDocs.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="card-body">
+              {existingDocs.length === 0 ? (
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', textAlign: 'center', padding: '1.5rem 0', margin: 0 }}>
+                  No documents uploaded yet.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {existingDocs.map(doc => (
+                    <div key={doc.id} className="pf-doc-row">
+                      <FileText size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                      <div className="pf-doc-row-body">
+                        <p className="pf-doc-row-title">{doc.document_type}</p>
+                        <p className="pf-doc-row-meta">
+                          {doc.file_name} · {fmtSize(doc.file_size)}
+                        </p>
+                      </div>
+                      <Badge tone={doc.is_verified ? 'success' : 'pending'}>
+                        {doc.is_verified ? 'Verified' : 'Pending'}
+                      </Badge>
+                      <a
+                        href={fileHref(doc.file_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline btn-sm"
+                        style={{ fontSize: '0.75rem', flexShrink: 0 }}
+                      >
+                        View
+                      </a>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ fontSize: '0.75rem', color: 'var(--status-danger-text)', flexShrink: 0 }}
+                        onClick={() => handleDeleteDoc(doc.id)}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="form-actions" style={{ marginTop: '0.5rem' }}>
+            <button type="button" className="btn btn-outline" onClick={() => setActiveTab('components')}>
+              <ArrowLeft size={16} /> Back to Components
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => navigate(`/projects/${savedProjectId}`)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <CheckCircle size={16} /> View Project
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
